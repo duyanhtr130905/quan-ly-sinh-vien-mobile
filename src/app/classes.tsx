@@ -5,12 +5,12 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 
-export default function StudentsScreen() {
+export default function ClassesScreen() {
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        <ThemedText type="subtitle">Sinh viên</ThemedText>
-        <ThemedText themeColor="textSecondary">Danh sách sinh viên sẽ hiển thị tại đây.</ThemedText>
+        <ThemedText type="subtitle">Lớp</ThemedText>
+        <ThemedText themeColor="textSecondary">Danh sách lớp sẽ hiển thị tại đây.</ThemedText>
       </SafeAreaView>
     </ThemedView>
   );
