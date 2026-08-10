@@ -14,7 +14,8 @@ export class ApiClientError extends Error {
   }
 }
 
-type QueryValue = string | number | boolean | null | undefined;
+export type QueryValue = string | number | boolean | null | undefined;
+type ApiBody = FormData | Record<string, unknown> | undefined;
 
 function isLegacyApiResponse(value: unknown): value is LegacyApiResponse<unknown> {
   return (
@@ -48,9 +49,23 @@ function buildUrl(path: string, query?: Record<string, QueryValue>) {
   return `${url}?${search}`;
 }
 
-async function get<T>(path: string, query?: Record<string, QueryValue>): Promise<T> {
+async function request<T>(
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
+  path: string,
+  body?: ApiBody,
+  query?: Record<string, QueryValue>,
+): Promise<T> {
+  const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
+  const headers: Record<string, string> = { Accept: 'application/json' };
+
+  if (body && !isFormData) {
+    headers['Content-Type'] = 'application/json';
+  }
+
   const response = await fetch(buildUrl(path, query), {
-    headers: { Accept: 'application/json' },
+    method,
+    headers,
+    body: body ? (isFormData ? body : JSON.stringify(body)) : undefined,
   });
   const payload: unknown = await response.json().catch(() => null);
 
@@ -65,4 +80,10 @@ async function get<T>(path: string, query?: Record<string, QueryValue>): Promise
   return payload as T;
 }
 
-export const apiClient = { get };
+export const apiClient = {
+  get: <T>(path: string, query?: Record<string, QueryValue>) => request<T>('GET', path, undefined, query),
+  post: <T>(path: string, body?: ApiBody, query?: Record<string, QueryValue>) => request<T>('POST', path, body, query),
+  put: <T>(path: string, body?: ApiBody, query?: Record<string, QueryValue>) => request<T>('PUT', path, body, query),
+  patch: <T>(path: string, body?: ApiBody, query?: Record<string, QueryValue>) => request<T>('PATCH', path, body, query),
+  delete: <T>(path: string, body?: ApiBody, query?: Record<string, QueryValue>) => request<T>('DELETE', path, body, query),
+};

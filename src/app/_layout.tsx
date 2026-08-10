@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { DarkTheme, DefaultTheme, Tabs, ThemeProvider } from 'expo-router';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import { useColorScheme } from 'react-native';
 
 const queryClient = new QueryClient({
@@ -16,10 +16,13 @@ export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <Tabs>
-          <Tabs.Screen name="index" options={{ title: 'Sinh viên' }} />
-          <Tabs.Screen name="classes" options={{ title: 'Lớp' }} />
-        </Tabs>
+        <Stack>
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="students/new" options={{ title: 'Thêm sinh viên' }} />
+          <Stack.Screen name="students/[id]" options={{ title: 'Chi tiết sinh viên' }} />
+          <Stack.Screen name="students/[id]/edit" options={{ title: 'Sửa sinh viên' }} />
+          <Stack.Screen name="students/deleted" options={{ title: 'Sinh viên đã xóa' }} />
+        </Stack>
       </ThemeProvider>
     </QueryClientProvider>
   );

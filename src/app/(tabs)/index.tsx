@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useRouter } from 'expo-router';
 import {
   ActivityIndicator,
   FlatList,
@@ -19,21 +20,20 @@ import { useTheme } from '@/hooks/use-theme';
 
 const PAGE_SIZE = 10;
 
-function StudentCard({ student }: { student: StudentListItem }) {
+function StudentCard({ student, onPress }: { student: StudentListItem; onPress: () => void }) {
   return (
-    <ThemedView type="backgroundElement" style={styles.studentCard}>
-      <ThemedText type="smallBold">{student.fullname}</ThemedText>
-      <ThemedText type="small" themeColor="textSecondary">
-        Mã sinh viên: {student.code}
-      </ThemedText>
-      <ThemedText type="small" themeColor="textSecondary">
-        {student.email}
-      </ThemedText>
-    </ThemedView>
+    <Pressable onPress={onPress}>
+      <ThemedView type="backgroundElement" style={styles.studentCard}>
+        <ThemedText type="smallBold">{student.fullname}</ThemedText>
+        <ThemedText type="small" themeColor="textSecondary">Mã sinh viên: {student.code}</ThemedText>
+        <ThemedText type="small" themeColor="textSecondary">{student.email}</ThemedText>
+      </ThemedView>
+    </Pressable>
   );
 }
 
 export default function StudentsScreen() {
+  const router = useRouter();
   const theme = useTheme();
   const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState('');
@@ -54,24 +54,24 @@ export default function StudentsScreen() {
     setPage(1);
   };
 
-  const renderItem = ({ item }: ListRenderItemInfo<StudentListItem>) => <StudentCard student={item} />;
+  const renderItem = ({ item }: ListRenderItemInfo<StudentListItem>) => (
+    <StudentCard student={item} onPress={() => router.push({ pathname: '/students/[id]', params: { id: item.id } })} />
+  );
+
   const renderEmpty = () => {
     if (studentsQuery.isPending) {
       return <ActivityIndicator color={theme.text} size="large" />;
     }
 
     if (studentsQuery.isError) {
-      const message =
-        studentsQuery.error instanceof ApiClientError
-          ? `${studentsQuery.error.code ? `${studentsQuery.error.code}: ` : ''}${studentsQuery.error.message}`
-          : 'Không thể tải danh sách sinh viên.';
+      const message = studentsQuery.error instanceof ApiClientError
+        ? `${studentsQuery.error.code ? `${studentsQuery.error.code}: ` : ''}${studentsQuery.error.message}`
+        : 'Không thể tải danh sách sinh viên.';
 
       return (
         <ThemedView type="backgroundElement" style={styles.stateCard}>
           <ThemedText type="smallBold">Đã xảy ra lỗi</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
-            {message}
-          </ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">{message}</ThemedText>
           <Pressable onPress={() => void studentsQuery.refetch()} style={styles.retryButton}>
             <ThemedText type="smallBold">Thử lại</ThemedText>
           </Pressable>
@@ -91,12 +91,20 @@ export default function StudentsScreen() {
       <SafeAreaView style={styles.safeArea}>
         <FlatList
           data={students}
-          keyExtractor={(student) => String(student.id)}
+          keyExtractor={(student) => student.id}
           renderItem={renderItem}
           ListHeaderComponent={
             <ThemedView style={styles.header}>
               <ThemedText type="subtitle">Sinh viên</ThemedText>
               <ThemedText themeColor="textSecondary">Tìm theo tên hoặc email.</ThemedText>
+              <ThemedView style={styles.actions}>
+                <Pressable onPress={() => router.push('/students/new')} style={styles.primaryAction}>
+                  <ThemedText type="smallBold" style={styles.primaryActionText}>Thêm sinh viên</ThemedText>
+                </Pressable>
+                <Pressable onPress={() => router.push('/students/deleted')} style={styles.secondaryAction}>
+                  <ThemedText type="smallBold">Sinh viên đã xóa</ThemedText>
+                </Pressable>
+              </ThemedView>
               <ThemedView style={styles.searchRow}>
                 <TextInput
                   value={searchInput}
@@ -108,9 +116,7 @@ export default function StudentsScreen() {
                   style={[styles.searchInput, { borderColor: theme.backgroundSelected, color: theme.text }]}
                 />
                 <Pressable onPress={submitSearch} style={styles.searchButton}>
-                  <ThemedText type="smallBold" style={styles.searchButtonText}>
-                    Tìm
-                  </ThemedText>
+                  <ThemedText type="smallBold" style={styles.primaryActionText}>Tìm</ThemedText>
                 </Pressable>
               </ThemedView>
             </ThemedView>
@@ -119,19 +125,11 @@ export default function StudentsScreen() {
           ListFooterComponent={
             pageData ? (
               <ThemedView style={styles.pagination}>
-                <Pressable
-                  disabled={!canGoPrevious}
-                  onPress={() => setPage((current) => Math.max(1, current - 1))}
-                  style={[styles.paginationButton, !canGoPrevious && styles.disabledButton]}>
+                <Pressable disabled={!canGoPrevious} onPress={() => setPage((current) => Math.max(1, current - 1))} style={[styles.paginationButton, !canGoPrevious && styles.disabledButton]}>
                   <ThemedText type="smallBold">Trước</ThemedText>
                 </Pressable>
-                <ThemedText type="small" themeColor="textSecondary">
-                  Trang {currentPage}/{totalPages || 1} · {pageData.page_info.total_items} sinh viên
-                </ThemedText>
-                <Pressable
-                  disabled={!canGoNext}
-                  onPress={() => setPage((current) => current + 1)}
-                  style={[styles.paginationButton, !canGoNext && styles.disabledButton]}>
+                <ThemedText type="small" themeColor="textSecondary">Trang {currentPage}/{totalPages || 1} · {pageData.page_info.total_items} sinh viên</ThemedText>
+                <Pressable disabled={!canGoNext} onPress={() => setPage((current) => current + 1)} style={[styles.paginationButton, !canGoNext && styles.disabledButton]}>
                   <ThemedText type="smallBold">Sau</ThemedText>
                 </Pressable>
               </ThemedView>
@@ -147,72 +145,22 @@ export default function StudentsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  safeArea: {
-    flex: 1,
-  },
-  listContent: {
-    padding: Spacing.four,
-    gap: Spacing.two,
-  },
-  emptyContent: {
-    flexGrow: 1,
-  },
-  header: {
-    gap: Spacing.two,
-    paddingBottom: Spacing.three,
-  },
-  searchRow: {
-    flexDirection: 'row',
-    gap: Spacing.two,
-  },
-  searchInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: Spacing.two,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
-    fontSize: 16,
-  },
-  searchButton: {
-    alignItems: 'center',
-    backgroundColor: '#0A7EA4',
-    borderRadius: Spacing.two,
-    justifyContent: 'center',
-    paddingHorizontal: Spacing.three,
-  },
-  searchButtonText: {
-    color: '#FFFFFF',
-  },
-  studentCard: {
-    gap: Spacing.half,
-    padding: Spacing.three,
-    borderRadius: Spacing.two,
-  },
-  stateCard: {
-    alignItems: 'center',
-    gap: Spacing.two,
-    marginTop: Spacing.four,
-    padding: Spacing.four,
-    borderRadius: Spacing.two,
-  },
-  retryButton: {
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
-  },
-  pagination: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingTop: Spacing.three,
-  },
-  paginationButton: {
-    paddingHorizontal: Spacing.two,
-    paddingVertical: Spacing.two,
-  },
-  disabledButton: {
-    opacity: 0.4,
-  },
+  container: { flex: 1 },
+  safeArea: { flex: 1 },
+  listContent: { padding: Spacing.four, gap: Spacing.two },
+  emptyContent: { flexGrow: 1 },
+  header: { gap: Spacing.two, paddingBottom: Spacing.three },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
+  primaryAction: { backgroundColor: '#0A7EA4', borderRadius: Spacing.two, paddingHorizontal: Spacing.three, paddingVertical: Spacing.two },
+  primaryActionText: { color: '#FFFFFF' },
+  secondaryAction: { borderColor: '#0A7EA4', borderRadius: Spacing.two, borderWidth: 1, paddingHorizontal: Spacing.three, paddingVertical: Spacing.two },
+  searchRow: { flexDirection: 'row', gap: Spacing.two },
+  searchInput: { borderWidth: 1, borderRadius: Spacing.two, flex: 1, fontSize: 16, paddingHorizontal: Spacing.three, paddingVertical: Spacing.two },
+  searchButton: { alignItems: 'center', backgroundColor: '#0A7EA4', borderRadius: Spacing.two, justifyContent: 'center', paddingHorizontal: Spacing.three },
+  studentCard: { gap: Spacing.half, padding: Spacing.three, borderRadius: Spacing.two },
+  stateCard: { alignItems: 'center', gap: Spacing.two, marginTop: Spacing.four, padding: Spacing.four, borderRadius: Spacing.two },
+  retryButton: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.two },
+  pagination: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', paddingTop: Spacing.three },
+  paginationButton: { paddingHorizontal: Spacing.two, paddingVertical: Spacing.two },
+  disabledButton: { opacity: 0.4 },
 });
