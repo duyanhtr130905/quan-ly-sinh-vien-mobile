@@ -112,7 +112,10 @@ function mutationMessage(error: unknown) {
   if (error instanceof ApiClientError) {
     return `${error.code ? `${error.code}: ` : ''}${error.message}`;
   }
-  return 'Không thể lưu sinh viên. Vui lòng thử lại.';
+  if (error instanceof Error && error.message) {
+    return `Không thể lưu sinh viên: ${error.message}`;
+  }
+  return `Không thể lưu sinh viên: ${String(error)}`;
 }
 
 function optionLabel(studentClass: StudentClass) {

@@ -1,3 +1,5 @@
+import { File } from 'expo-file-system';
+
 import type { LegacyApiResponse } from './api-types';
 import { apiClient } from './api-client';
 
@@ -131,7 +133,8 @@ function studentFormData(values: StudentFormValues, image: StudentImageFile | nu
   appendFormValue(formData, 'hobbies', values.hobbies);
 
   if (image) {
-    formData.append('attachment', image as unknown as Blob);
+    const file = new File(image.uri);
+    formData.append('attachment', file, image.name);
   }
 
   return formData;
