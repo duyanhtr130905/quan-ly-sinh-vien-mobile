@@ -1,28 +1,23 @@
-import { StyleSheet } from 'react-native';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useRouter } from 'expo-router';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
+import { ApiClientError } from '@/api/api-client';
+import { getClassPage, type ClassRecord } from '@/api/classes';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 
+const SIZE = 10;
 export default function ClassesScreen() {
-  return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedText type="subtitle">Lớp</ThemedText>
-        <ThemedText themeColor="textSecondary">Danh sách lớp sẽ hiển thị tại đây.</ThemedText>
-      </SafeAreaView>
-    </ThemedView>
-  );
+  const router = useRouter(); const theme = useTheme(); const [page, setPage] = useState(1); const [input, setInput] = useState(''); const [search, setSearch] = useState('');
+  const query = useQuery({ queryKey: ['classes', { page, size: SIZE, search }], queryFn: () => getClassPage({ page, size: SIZE, search }) }); const data = query.data?.data; const records = data?.records ?? []; const current = data?.page_info.current ?? page; const total = data?.page_info.total_pages ?? 0;
+  const submit = () => { setSearch(input.trim()); setPage(1); }; const error = query.error instanceof ApiClientError ? `${query.error.code ? `${query.error.code}: ` : ''}${query.error.message}` : 'Không thể tải danh sách lớp.';
+  return <ThemedView style={s.container}><SafeAreaView style={s.container}><FlatList data={records} keyExtractor={(item) => item.id} renderItem={({ item }: { item: ClassRecord }) => <Pressable onPress={() => router.push({ pathname: '/classes/[id]', params: { id: item.id } } as never)}><ThemedView type="backgroundElement" style={s.card}><ThemedText type="smallBold">{item.code} — {item.name}</ThemedText>{item.description ? <ThemedText type="small" themeColor="textSecondary">{item.description}</ThemedText> : null}<ThemedText type="small" themeColor="textSecondary">{Number(item.student_count)} sinh viên</ThemedText></ThemedView></Pressable>}
+    ListHeaderComponent={<ThemedView style={s.header}><ThemedText type="subtitle">Lớp</ThemedText><ThemedText themeColor="textSecondary">Tìm theo mã, tên hoặc mô tả.</ThemedText><Pressable onPress={() => router.push('/classes/new' as never)} style={s.primary}><ThemedText type="smallBold" style={s.primaryText}>Thêm lớp</ThemedText></Pressable><ThemedView style={s.searchRow}><TextInput value={input} onChangeText={setInput} onSubmitEditing={submit} returnKeyType="search" placeholder="Nhập mã, tên hoặc mô tả" placeholderTextColor={theme.textSecondary} style={[s.input, { borderColor: theme.backgroundSelected, color: theme.text }]} /><Pressable onPress={submit} style={s.search}><ThemedText type="smallBold" style={s.primaryText}>Tìm</ThemedText></Pressable></ThemedView></ThemedView>}
+    ListEmptyComponent={query.isPending ? <ActivityIndicator size="large" color={theme.text} /> : <ThemedView type="backgroundElement" style={s.state}><ThemedText type="smallBold">{query.isError ? 'Đã xảy ra lỗi' : 'Không có lớp phù hợp.'}</ThemedText>{query.isError ? <><ThemedText type="small" themeColor="textSecondary">{error}</ThemedText><Pressable onPress={() => void query.refetch()}><ThemedText type="smallBold">Thử lại</ThemedText></Pressable></> : null}</ThemedView>}
+    ListFooterComponent={data ? <ThemedView style={s.pagination}><Pressable disabled={current <= 1} onPress={() => setPage((v) => Math.max(1, v - 1))} style={[s.page, current <= 1 && s.disabled]}><ThemedText type="smallBold">Trước</ThemedText></Pressable><ThemedText type="small" themeColor="textSecondary">Trang {current}/{total || 1} · {data.page_info.total_items} lớp</ThemedText><Pressable disabled={!total || current >= total} onPress={() => setPage((v) => v + 1)} style={[s.page, (!total || current >= total) && s.disabled]}><ThemedText type="smallBold">Sau</ThemedText></Pressable></ThemedView> : null} contentContainerStyle={[s.content, !records.length && s.empty]} refreshing={query.isRefetching} onRefresh={() => void query.refetch()} /></SafeAreaView></ThemedView>;
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.three,
-  },
-});
+const s = StyleSheet.create({ container: { flex: 1 }, content: { gap: Spacing.two, padding: Spacing.four }, empty: { flexGrow: 1 }, header: { gap: Spacing.two, paddingBottom: Spacing.three }, primary: { alignSelf: 'flex-start', backgroundColor: '#0A7EA4', borderRadius: Spacing.two, paddingHorizontal: Spacing.three, paddingVertical: Spacing.two }, primaryText: { color: '#FFF' }, searchRow: { flexDirection: 'row', gap: Spacing.two }, input: { borderWidth: 1, borderRadius: Spacing.two, flex: 1, fontSize: 16, paddingHorizontal: Spacing.three, paddingVertical: Spacing.two }, search: { alignItems: 'center', backgroundColor: '#0A7EA4', borderRadius: Spacing.two, justifyContent: 'center', paddingHorizontal: Spacing.three }, card: { gap: Spacing.one, padding: Spacing.three, borderRadius: Spacing.two }, state: { alignItems: 'center', gap: Spacing.two, marginTop: Spacing.four, padding: Spacing.four, borderRadius: Spacing.two }, pagination: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', paddingTop: Spacing.three }, page: { padding: Spacing.two }, disabled: { opacity: .4 } });
