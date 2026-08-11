@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "quan-ly-sinh-vien-mobile",
+    "name": "Quản lý Sinh viên",
     "slug": "quan-ly-sinh-vien-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -11,6 +11,7 @@
       "icon": "./assets/expo.icon"
     },
     "android": {
+      "package": "com.duyanhtr130905.quanlysinhvien",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
