@@ -1,14 +1,16 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ApiClientError } from '@/api/api-client';
 import { getActiveHobbies, getStudentClasses } from '@/api/catalogs';
-import { copyStudent, deleteStudent, getStudent } from '@/api/students';
+import { copyStudent, deleteStudent, exportStudent, getStudent, type StudentFileFormat } from '@/api/students';
+import { FileFormatChooser } from '@/components/file-format-chooser';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
+import { shareBinaryFile } from '@/utils/file-sharing';
 
 function errorMessage(error: unknown, fallback: string) {
   if (error instanceof ApiClientError) return `${error.code ? `${error.code}: ` : ''}${error.message}`;
@@ -33,6 +35,7 @@ export default function StudentDetailScreen() {
     const mask = Number(student?.hobbies ?? 0);
     return hobbiesQuery.data?.data.filter((hobby) => (mask & hobby.bit_value) !== 0).map((hobby) => hobby.name) ?? [];
   }, [hobbiesQuery.data, student?.hobbies]);
+  const [exportFormat, setExportFormat] = useState<StudentFileFormat>('xlsx');
 
   const copyMutation = useMutation({
     mutationFn: () => copyStudent(id),
@@ -52,6 +55,7 @@ export default function StudentDetailScreen() {
       router.replace('/');
     },
   });
+  const exportMutation = useMutation({ mutationFn: () => exportStudent(id, exportFormat).then(shareBinaryFile) });
 
   const confirmDelete = () => {
     Alert.alert('Xóa sinh viên?', 'Sinh viên sẽ được chuyển vào danh sách đã xóa.', [
@@ -99,11 +103,17 @@ export default function StudentDetailScreen() {
 
         {copyMutation.isError ? <ThemedText type="small" style={styles.errorText}>{errorMessage(copyMutation.error, 'Không thể sao chép sinh viên.')}</ThemedText> : null}
         {deleteMutation.isError ? <ThemedText type="small" style={styles.errorText}>{errorMessage(deleteMutation.error, 'Không thể xóa sinh viên.')}</ThemedText> : null}
+        {exportMutation.isError ? <ThemedText type="small" style={styles.errorText}>{errorMessage(exportMutation.error, 'Không thể xuất tệp.')}</ThemedText> : null}
         <View style={styles.actions}>
           <Pressable onPress={() => router.push({ pathname: '/students/[id]/edit', params: { id } })} style={styles.primaryAction}><ThemedText type="smallBold" style={styles.primaryActionText}>Sửa</ThemedText></Pressable>
           <Pressable disabled={copyMutation.isPending} onPress={() => copyMutation.mutate()} style={styles.secondaryAction}><ThemedText type="smallBold">{copyMutation.isPending ? 'Đang sao chép...' : 'Sao chép'}</ThemedText></Pressable>
           <Pressable disabled={deleteMutation.isPending} onPress={confirmDelete} style={styles.deleteAction}><ThemedText type="smallBold" style={styles.deleteActionText}>{deleteMutation.isPending ? 'Đang xóa...' : 'Xóa'}</ThemedText></Pressable>
         </View>
+        <ThemedView type="backgroundElement" style={styles.exportCard}>
+          <ThemedText type="smallBold">Xuất sinh viên</ThemedText>
+          <FileFormatChooser value={exportFormat} onChange={setExportFormat} />
+          <Pressable disabled={exportMutation.isPending} onPress={() => exportMutation.mutate()} style={[styles.secondaryAction, exportMutation.isPending && styles.disabledButton]}><ThemedText type="smallBold">{exportMutation.isPending ? 'Đang chuẩn bị...' : 'Xuất'}</ThemedText></Pressable>
+        </ThemedView>
       </ScrollView>
     </ThemedView>
   );
@@ -130,6 +140,8 @@ const styles = StyleSheet.create({
   secondaryAction: { borderColor: '#0A7EA4', borderRadius: Spacing.two, borderWidth: 1, paddingHorizontal: Spacing.three, paddingVertical: Spacing.two },
   deleteAction: { backgroundColor: '#B42318', borderRadius: Spacing.two, paddingHorizontal: Spacing.three, paddingVertical: Spacing.two },
   deleteActionText: { color: '#FFFFFF' },
+  exportCard: { gap: Spacing.two, padding: Spacing.three, borderRadius: Spacing.two },
+  disabledButton: { opacity: 0.5 },
   errorText: { color: '#B42318' },
   centered: { alignItems: 'center', flex: 1, gap: Spacing.two, justifyContent: 'center', padding: Spacing.four },
 });

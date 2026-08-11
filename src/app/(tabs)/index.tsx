@@ -1,166 +1,42 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import {
-  ActivityIndicator,
-  FlatList,
-  Pressable,
-  StyleSheet,
-  TextInput,
-  type ListRenderItemInfo,
-} from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, TextInput, View, type ListRenderItemInfo } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ApiClientError } from '@/api/api-client';
-import { getStudentPage, type StudentListItem } from '@/api/students';
+import { exportStudents, getStudentPage, type StudentFileFormat, type StudentListItem } from '@/api/students';
+import { FileFormatChooser } from '@/components/file-format-chooser';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { shareBinaryFile } from '@/utils/file-sharing';
 
 const PAGE_SIZE = 10;
 
-function StudentCard({ student, onPress }: { student: StudentListItem; onPress: () => void }) {
-  return (
-    <Pressable onPress={onPress}>
-      <ThemedView type="backgroundElement" style={styles.studentCard}>
-        <ThemedText type="smallBold">{student.fullname}</ThemedText>
-        <ThemedText type="small" themeColor="textSecondary">Mã sinh viên: {student.code}</ThemedText>
-        <ThemedText type="small" themeColor="textSecondary">{student.email}</ThemedText>
-      </ThemedView>
-    </Pressable>
-  );
+function StudentCard({ student, selecting, selected, onPress, onToggle }: { student: StudentListItem; selecting: boolean; selected: boolean; onPress: () => void; onToggle: () => void }) {
+  return <Pressable onPress={selecting ? onToggle : onPress}><ThemedView type="backgroundElement" style={styles.studentCard}><ThemedText type="smallBold">{selecting ? `${selected ? '✓ ' : '○ '}` : ''}{student.fullname}</ThemedText><ThemedText type="small" themeColor="textSecondary">Mã sinh viên: {student.code}</ThemedText><ThemedText type="small" themeColor="textSecondary">{student.email}</ThemedText></ThemedView></Pressable>;
 }
 
 export default function StudentsScreen() {
-  const router = useRouter();
-  const theme = useTheme();
-  const [page, setPage] = useState(1);
-  const [searchInput, setSearchInput] = useState('');
-  const [search, setSearch] = useState('');
-  const studentsQuery = useQuery({
-    queryKey: ['students', { page, size: PAGE_SIZE, search }],
-    queryFn: () => getStudentPage({ page, size: PAGE_SIZE, search }),
-  });
-  const pageData = studentsQuery.data?.data;
-  const students = pageData?.records ?? [];
-  const currentPage = pageData?.page_info.current ?? page;
-  const totalPages = pageData?.page_info.total_pages ?? 0;
-  const canGoPrevious = currentPage > 1;
-  const canGoNext = totalPages > 0 && currentPage < totalPages;
-
-  const submitSearch = () => {
-    setSearch(searchInput.trim());
-    setPage(1);
-  };
-
-  const renderItem = ({ item }: ListRenderItemInfo<StudentListItem>) => (
-    <StudentCard student={item} onPress={() => router.push({ pathname: '/students/[id]', params: { id: item.id } })} />
-  );
-
-  const renderEmpty = () => {
-    if (studentsQuery.isPending) {
-      return <ActivityIndicator color={theme.text} size="large" />;
-    }
-
-    if (studentsQuery.isError) {
-      const message = studentsQuery.error instanceof ApiClientError
-        ? `${studentsQuery.error.code ? `${studentsQuery.error.code}: ` : ''}${studentsQuery.error.message}`
-        : 'Không thể tải danh sách sinh viên.';
-
-      return (
-        <ThemedView type="backgroundElement" style={styles.stateCard}>
-          <ThemedText type="smallBold">Đã xảy ra lỗi</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">{message}</ThemedText>
-          <Pressable onPress={() => void studentsQuery.refetch()} style={styles.retryButton}>
-            <ThemedText type="smallBold">Thử lại</ThemedText>
-          </Pressable>
-        </ThemedView>
-      );
-    }
-
-    return (
-      <ThemedView type="backgroundElement" style={styles.stateCard}>
-        <ThemedText type="small">Không có sinh viên phù hợp.</ThemedText>
-      </ThemedView>
-    );
-  };
-
-  return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <FlatList
-          data={students}
-          keyExtractor={(student) => student.id}
-          renderItem={renderItem}
-          ListHeaderComponent={
-            <ThemedView style={styles.header}>
-              <ThemedText type="subtitle">Sinh viên</ThemedText>
-              <ThemedText themeColor="textSecondary">Tìm theo tên hoặc email.</ThemedText>
-              <ThemedView style={styles.actions}>
-                <Pressable onPress={() => router.push('/students/new')} style={styles.primaryAction}>
-                  <ThemedText type="smallBold" style={styles.primaryActionText}>Thêm sinh viên</ThemedText>
-                </Pressable>
-                <Pressable onPress={() => router.push('/students/deleted')} style={styles.secondaryAction}>
-                  <ThemedText type="smallBold">Sinh viên đã xóa</ThemedText>
-                </Pressable>
-              </ThemedView>
-              <ThemedView style={styles.searchRow}>
-                <TextInput
-                  value={searchInput}
-                  onChangeText={setSearchInput}
-                  onSubmitEditing={submitSearch}
-                  placeholder="Nhập tên hoặc email"
-                  placeholderTextColor={theme.textSecondary}
-                  returnKeyType="search"
-                  style={[styles.searchInput, { borderColor: theme.backgroundSelected, color: theme.text }]}
-                />
-                <Pressable onPress={submitSearch} style={styles.searchButton}>
-                  <ThemedText type="smallBold" style={styles.primaryActionText}>Tìm</ThemedText>
-                </Pressable>
-              </ThemedView>
-            </ThemedView>
-          }
-          ListEmptyComponent={renderEmpty}
-          ListFooterComponent={
-            pageData ? (
-              <ThemedView style={styles.pagination}>
-                <Pressable disabled={!canGoPrevious} onPress={() => setPage((current) => Math.max(1, current - 1))} style={[styles.paginationButton, !canGoPrevious && styles.disabledButton]}>
-                  <ThemedText type="smallBold">Trước</ThemedText>
-                </Pressable>
-                <ThemedText type="small" themeColor="textSecondary">Trang {currentPage}/{totalPages || 1} · {pageData.page_info.total_items} sinh viên</ThemedText>
-                <Pressable disabled={!canGoNext} onPress={() => setPage((current) => current + 1)} style={[styles.paginationButton, !canGoNext && styles.disabledButton]}>
-                  <ThemedText type="smallBold">Sau</ThemedText>
-                </Pressable>
-              </ThemedView>
-            ) : null
-          }
-          contentContainerStyle={[styles.listContent, students.length === 0 && styles.emptyContent]}
-          refreshing={studentsQuery.isRefetching}
-          onRefresh={() => void studentsQuery.refetch()}
-        />
-      </SafeAreaView>
-    </ThemedView>
-  );
+  const router = useRouter(); const theme = useTheme();
+  const [page, setPage] = useState(1); const [searchInput, setSearchInput] = useState(''); const [search, setSearch] = useState('');
+  const [selectionMode, setSelectionMode] = useState(false); const [selectedIds, setSelectedIds] = useState<string[]>([]); const [exportFormat, setExportFormat] = useState<StudentFileFormat>('xlsx');
+  const studentsQuery = useQuery({ queryKey: ['students', { page, size: PAGE_SIZE, search }], queryFn: () => getStudentPage({ page, size: PAGE_SIZE, search }) });
+  const pageData = studentsQuery.data?.data; const students = pageData?.records ?? []; const currentPage = pageData?.page_info.current ?? page; const totalPages = pageData?.page_info.total_pages ?? 0;
+  const exportMutation = useMutation({ mutationFn: () => exportStudents(selectedIds, exportFormat).then(shareBinaryFile) });
+  const submitSearch = () => { setSearch(searchInput.trim()); setPage(1); };
+  const toggle = (id: string) => setSelectedIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
+  const renderItem = ({ item }: ListRenderItemInfo<StudentListItem>) => <StudentCard student={item} selecting={selectionMode} selected={selectedIds.includes(item.id)} onToggle={() => toggle(item.id)} onPress={() => router.push({ pathname: '/students/[id]', params: { id: item.id } })} />;
+  const error = studentsQuery.error instanceof ApiClientError ? `${studentsQuery.error.code ? `${studentsQuery.error.code}: ` : ''}${studentsQuery.error.message}` : 'Không thể tải danh sách sinh viên.';
+  return <ThemedView style={styles.container}><SafeAreaView style={styles.safeArea}><FlatList data={students} keyExtractor={(student) => student.id} renderItem={renderItem}
+    ListHeaderComponent={<ThemedView style={styles.header}><ThemedText type="subtitle">Sinh viên</ThemedText><ThemedText themeColor="textSecondary">Tìm theo tên hoặc email.</ThemedText><View style={styles.actions}><Pressable onPress={() => router.push('/students/new')} style={styles.primaryAction}><ThemedText type="smallBold" style={styles.primaryText}>Thêm sinh viên</ThemedText></Pressable><Pressable onPress={() => router.push('/students/deleted')} style={styles.secondaryAction}><ThemedText type="smallBold">Đã xóa</ThemedText></Pressable><Pressable onPress={() => router.push('/students/import')} style={styles.secondaryAction}><ThemedText type="smallBold">Nhập</ThemedText></Pressable><Pressable onPress={() => setSelectionMode((value) => !value)} style={styles.secondaryAction}><ThemedText type="smallBold">{selectionMode ? 'Xong chọn' : 'Chọn nhiều'}</ThemedText></Pressable></View>
+      {selectionMode ? <ThemedView type="backgroundElement" style={styles.selectionBar}><ThemedText type="smallBold">Đã chọn {selectedIds.length}</ThemedText><View style={styles.actions}><Pressable onPress={() => setSelectedIds((current) => [...new Set([...current, ...students.map((student) => student.id)])])} style={styles.secondaryAction}><ThemedText type="smallBold">Chọn trang này</ThemedText></Pressable><Pressable onPress={() => setSelectedIds([])} style={styles.secondaryAction}><ThemedText type="smallBold">Bỏ chọn</ThemedText></Pressable>{selectedIds.length ? <Pressable onPress={() => router.push({ pathname: '/students/copy-preview', params: { ids: selectedIds.join(',') } })} style={styles.primaryAction}><ThemedText type="smallBold" style={styles.primaryText}>Sao chép</ThemedText></Pressable> : null}</View>{selectedIds.length ? <><ThemedText type="small">Xuất định dạng</ThemedText><FileFormatChooser value={exportFormat} onChange={setExportFormat} /><Pressable disabled={exportMutation.isPending} onPress={() => exportMutation.mutate()} style={[styles.primaryAction, exportMutation.isPending && styles.disabled]}><ThemedText type="smallBold" style={styles.primaryText}>{exportMutation.isPending ? 'Đang chuẩn bị...' : 'Xuất'}</ThemedText></Pressable></> : null}{exportMutation.isError ? <ThemedText type="small" style={styles.error}>{exportMutation.error instanceof ApiClientError ? `${exportMutation.error.code ? `${exportMutation.error.code}: ` : ''}${exportMutation.error.message}` : 'Không thể xuất tệp.'}</ThemedText> : null}</ThemedView> : null}
+      <View style={styles.searchRow}><TextInput value={searchInput} onChangeText={setSearchInput} onSubmitEditing={submitSearch} placeholder="Nhập tên hoặc email" placeholderTextColor={theme.textSecondary} returnKeyType="search" style={[styles.searchInput, { borderColor: theme.backgroundSelected, color: theme.text }]} /><Pressable onPress={submitSearch} style={styles.searchButton}><ThemedText type="smallBold" style={styles.primaryText}>Tìm</ThemedText></Pressable></View></ThemedView>}
+    ListEmptyComponent={studentsQuery.isPending ? <ActivityIndicator color={theme.text} size="large" /> : studentsQuery.isError ? <ThemedView type="backgroundElement" style={styles.stateCard}><ThemedText type="smallBold">Đã xảy ra lỗi</ThemedText><ThemedText type="small">{error}</ThemedText><Pressable onPress={() => void studentsQuery.refetch()}><ThemedText type="smallBold">Thử lại</ThemedText></Pressable></ThemedView> : <ThemedView type="backgroundElement" style={styles.stateCard}><ThemedText type="small">Không có sinh viên phù hợp.</ThemedText></ThemedView>}
+    ListFooterComponent={pageData ? <View style={styles.pagination}><Pressable disabled={currentPage <= 1} onPress={() => setPage((current) => Math.max(1, current - 1))}><ThemedText type="smallBold">Trước</ThemedText></Pressable><ThemedText type="small">Trang {currentPage}/{totalPages || 1} · {pageData.page_info.total_items}</ThemedText><Pressable disabled={!(totalPages > 0 && currentPage < totalPages)} onPress={() => setPage((current) => current + 1)}><ThemedText type="smallBold">Sau</ThemedText></Pressable></View> : null}
+    contentContainerStyle={[styles.listContent, students.length === 0 && styles.emptyContent]} refreshing={studentsQuery.isRefetching} onRefresh={() => void studentsQuery.refetch()} /></SafeAreaView></ThemedView>;
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  safeArea: { flex: 1 },
-  listContent: { padding: Spacing.four, gap: Spacing.two },
-  emptyContent: { flexGrow: 1 },
-  header: { gap: Spacing.two, paddingBottom: Spacing.three },
-  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
-  primaryAction: { backgroundColor: '#0A7EA4', borderRadius: Spacing.two, paddingHorizontal: Spacing.three, paddingVertical: Spacing.two },
-  primaryActionText: { color: '#FFFFFF' },
-  secondaryAction: { borderColor: '#0A7EA4', borderRadius: Spacing.two, borderWidth: 1, paddingHorizontal: Spacing.three, paddingVertical: Spacing.two },
-  searchRow: { flexDirection: 'row', gap: Spacing.two },
-  searchInput: { borderWidth: 1, borderRadius: Spacing.two, flex: 1, fontSize: 16, paddingHorizontal: Spacing.three, paddingVertical: Spacing.two },
-  searchButton: { alignItems: 'center', backgroundColor: '#0A7EA4', borderRadius: Spacing.two, justifyContent: 'center', paddingHorizontal: Spacing.three },
-  studentCard: { gap: Spacing.half, padding: Spacing.three, borderRadius: Spacing.two },
-  stateCard: { alignItems: 'center', gap: Spacing.two, marginTop: Spacing.four, padding: Spacing.four, borderRadius: Spacing.two },
-  retryButton: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.two },
-  pagination: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', paddingTop: Spacing.three },
-  paginationButton: { paddingHorizontal: Spacing.two, paddingVertical: Spacing.two },
-  disabledButton: { opacity: 0.4 },
-});
+const styles = StyleSheet.create({ container: { flex: 1 }, safeArea: { flex: 1 }, listContent: { padding: Spacing.four, gap: Spacing.two }, emptyContent: { flexGrow: 1 }, header: { gap: Spacing.two, paddingBottom: Spacing.three }, actions: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two }, primaryAction: { backgroundColor: '#0A7EA4', borderRadius: Spacing.two, paddingHorizontal: Spacing.three, paddingVertical: Spacing.two }, primaryText: { color: '#FFFFFF' }, secondaryAction: { borderColor: '#0A7EA4', borderRadius: Spacing.two, borderWidth: 1, paddingHorizontal: Spacing.three, paddingVertical: Spacing.two }, searchRow: { flexDirection: 'row', gap: Spacing.two }, searchInput: { borderWidth: 1, borderRadius: Spacing.two, flex: 1, fontSize: 16, paddingHorizontal: Spacing.three, paddingVertical: Spacing.two }, searchButton: { alignItems: 'center', backgroundColor: '#0A7EA4', borderRadius: Spacing.two, justifyContent: 'center', paddingHorizontal: Spacing.three }, studentCard: { gap: Spacing.half, padding: Spacing.three, borderRadius: Spacing.two }, stateCard: { alignItems: 'center', gap: Spacing.two, marginTop: Spacing.four, padding: Spacing.four, borderRadius: Spacing.two }, pagination: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', paddingTop: Spacing.three }, selectionBar: { gap: Spacing.two, padding: Spacing.three, borderRadius: Spacing.two }, disabled: { opacity: 0.45 }, error: { color: '#B42318' } });

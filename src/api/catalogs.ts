@@ -24,3 +24,7 @@ export function getStudentClasses() {
 export function getActiveHobbies() {
   return apiClient.get<LegacyApiResponse<Hobby[]>>('/hobby');
 }
+
+export function createHobby(name: string) {
+  return apiClient.post<LegacyApiResponse<Hobby>>('/hobby', { name });
+}

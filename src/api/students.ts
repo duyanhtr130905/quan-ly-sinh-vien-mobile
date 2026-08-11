@@ -1,7 +1,7 @@
 import { File } from 'expo-file-system';
 
 import type { LegacyApiResponse } from './api-types';
-import { apiClient } from './api-client';
+import { apiClient, type BinaryFileResponse } from './api-client';
 
 const STUDENT_LIST_COLUMNS = 'id,code,fullname,email';
 
@@ -173,4 +173,70 @@ export function permanentlyDeleteStudents(ids: number[]) {
 
 export function copyStudent(id: string) {
   return apiClient.post<LegacyApiResponse<Student>>(`/student/copy/${id}`);
+}
+
+export type StudentFileFormat = 'csv' | 'xlsx' | 'json' | 'xml';
+
+export type StudentCopyValues = {
+  code: string; fullname: string; dob: string | null; sex: boolean | null; homecity: string | null; address: string | null;
+  hair_color: string | null; email: string; facebook: string | null; class_id: string | number | null; username: string;
+  description: string | null; hobbies: number; attachment: string | null;
+};
+
+export type StudentCopyDraft = { draftKey: string; sourceId: number; values: StudentCopyValues };
+export type StudentCopyPreview = { drafts: StudentCopyDraft[]; notFoundIds: (string | number)[] };
+export type StudentCopyValidationRow = { draftKey: string; status: 'valid' | 'invalid'; errors: Record<string, string> };
+export type StudentCopyCommit = { created: { draftKey: string; record: Student | undefined }[] };
+
+export type StudentImportValues = {
+  code: string; fullname: string; dob: string | null; gender: boolean | null; class: string; email: string; username: string; password: string;
+  homecity: string; address: string; hobbies: string[]; description: string; hair_color: string; facebook: string;
+};
+export type StudentImportLookup = { id: number; code?: string; name?: string; bit_value?: number };
+export type StudentImportRow = {
+  draftKey: string; rowNumber: number; values: StudentImportValues; mode: 'create' | 'update'; status: 'valid' | 'invalid';
+  errors: Record<string, string>; fieldErrors: Record<string, string>; missingHobbies: string[];
+};
+export type StudentImportPreview = { rows: StudentImportRow[]; lookups?: { classes: StudentImportLookup[]; hobbies: StudentImportLookup[] } };
+export type StudentImportCommit = { created: { draftKey: string; rowNumber: number; record: Student }[]; updated: { draftKey: string; rowNumber: number; record: Student }[] };
+
+export function previewStudentCopies(ids: string[]) {
+  return apiClient.post<LegacyApiResponse<StudentCopyPreview>>('/student/copy/preview', { idlist: ids });
+}
+
+export function validateStudentCopies(drafts: StudentCopyDraft[]) {
+  return apiClient.post<LegacyApiResponse<{ rows: StudentCopyValidationRow[] }>>('/student/copy/validate', { drafts });
+}
+
+export function commitStudentCopies(drafts: StudentCopyDraft[], images: Record<string, StudentImageFile>) {
+  const form = new FormData();
+  form.append('drafts', JSON.stringify(drafts));
+  Object.entries(images).forEach(([draftKey, image]) => form.append(`attachment-${draftKey}`, new File(image.uri), image.name));
+  return apiClient.post<LegacyApiResponse<StudentCopyCommit>>('/student/copy/commit', form);
+}
+
+export function getStudentImportTemplate(type: StudentFileFormat): Promise<BinaryFileResponse> {
+  return apiClient.getFile('/student/import/template', { type });
+}
+
+export function previewStudentImport(fileUri: string, name: string) {
+  const form = new FormData();
+  form.append('file', new File(fileUri), name);
+  return apiClient.post<LegacyApiResponse<StudentImportPreview>>('/student/import', form);
+}
+
+export function validateStudentImport(drafts: StudentImportRow[]) {
+  return apiClient.post<LegacyApiResponse<StudentImportPreview>>('/student/import/validate', { drafts });
+}
+
+export function commitStudentImport(drafts: StudentImportRow[]) {
+  return apiClient.post<LegacyApiResponse<StudentImportCommit>>('/student/import/commit', { drafts });
+}
+
+export function exportStudent(id: string, type: StudentFileFormat): Promise<BinaryFileResponse> {
+  return apiClient.getFile(`/student/export/${id}`, { type });
+}
+
+export function exportStudents(ids: string[], type: StudentFileFormat): Promise<BinaryFileResponse> {
+  return apiClient.postFile('/student/export', { idlist: ids, type });
 }

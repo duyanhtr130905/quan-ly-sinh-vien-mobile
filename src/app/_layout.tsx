@@ -17,6 +17,8 @@ export default function RootLayout() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <Stack>
+          <Stack.Screen name="students/import" options={{ title: 'Nhập sinh viên' }} />
+          <Stack.Screen name="students/copy-preview" options={{ title: 'Sao chép sinh viên' }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="classes/new" options={{ title: 'Thêm lớp' }} />
           <Stack.Screen name="classes/[id]" options={{ title: 'Chi tiết lớp' }} />
