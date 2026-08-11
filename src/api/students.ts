@@ -200,6 +200,10 @@ export type StudentImportRow = {
 export type StudentImportPreview = { rows: StudentImportRow[]; lookups?: { classes: StudentImportLookup[]; hobbies: StudentImportLookup[] } };
 export type StudentImportCommit = { created: { draftKey: string; rowNumber: number; record: Student }[]; updated: { draftKey: string; rowNumber: number; record: Student }[] };
 
+type StudentImportTransportRow = Omit<StudentImportRow, 'values'> & {
+  values: Omit<StudentImportValues, 'hobbies'> & { hobbies: string };
+};
+
 export function previewStudentCopies(ids: string[]) {
   return apiClient.post<LegacyApiResponse<StudentCopyPreview>>('/student/copy/preview', { idlist: ids });
 }
@@ -226,11 +230,18 @@ export function previewStudentImport(fileUri: string, name: string) {
 }
 
 export function validateStudentImport(drafts: StudentImportRow[]) {
-  return apiClient.post<LegacyApiResponse<StudentImportPreview>>('/student/import/validate', { drafts });
+  return apiClient.post<LegacyApiResponse<StudentImportPreview>>('/student/import/validate', { drafts: serializeImportDrafts(drafts) });
 }
 
 export function commitStudentImport(drafts: StudentImportRow[]) {
-  return apiClient.post<LegacyApiResponse<StudentImportCommit>>('/student/import/commit', { drafts });
+  return apiClient.post<LegacyApiResponse<StudentImportCommit>>('/student/import/commit', { drafts: serializeImportDrafts(drafts) });
+}
+
+function serializeImportDrafts(drafts: StudentImportRow[]): StudentImportTransportRow[] {
+  return drafts.map((draft) => ({
+    ...draft,
+    values: { ...draft.values, hobbies: draft.values.hobbies.join('; ') },
+  }));
 }
 
 export function exportStudent(id: string, type: StudentFileFormat): Promise<BinaryFileResponse> {
