@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "dependencies": {
     "@tanstack/react-query": "^5.101.4",
+    "@types/jest": "29.5.14",
     "expo": "~57.0.12",
     "expo-constants": "~57.0.10",
     "expo-file-system": "~57.0.2",
@@ -12,6 +13,8 @@
     "expo-router": "~57.0.12",
     "expo-splash-screen": "~57.0.6",
     "expo-system-ui": "~57.0.2",
+    "jest": "~29.7.0",
+    "jest-expo": "~57.0.4",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.2",
@@ -31,7 +34,18 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "test": "jest"
+  },
+  "jest": {
+    "preset": "jest-expo",
+    "testMatch": [
+      "**/?(*.)+(spec|test).[tj]s?(x)",
+      "**/*-test.[tj]s?(x)"
+    ],
+    "moduleNameMapper": {
+      "^@/(.*)$": "<rootDir>/src/$1"
+    }
   },
   "private": true
 }
