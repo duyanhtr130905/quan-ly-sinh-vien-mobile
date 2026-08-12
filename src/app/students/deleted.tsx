@@ -1,176 +1,31 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  Pressable,
-  StyleSheet,
-  TextInput,
-  type ListRenderItemInfo,
-} from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { ApiClientError } from '@/api/api-client';
-import {
-  getDeletedStudentPage,
-  permanentlyDeleteStudents,
-  restoreStudents,
-  type StudentListItem,
-} from '@/api/students';
+import { getDeletedStudentPage, permanentlyDeleteStudents, restoreStudents, type StudentListItem } from '@/api/students';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 const PAGE_SIZE = 10;
-
-function errorMessage(error: unknown) {
-  if (error instanceof ApiClientError) return `${error.code ? `${error.code}: ` : ''}${error.message}`;
-  return 'Không thể tải danh sách sinh viên đã xóa.';
-}
+function errorMessage(error: unknown) { return error instanceof ApiClientError ? `${error.code ? `${error.code}: ` : ''}${error.message}` : 'Không thể cập nhật danh sách sinh viên đã xóa.'; }
 
 export default function DeletedStudentsScreen() {
-  const theme = useTheme();
-  const queryClient = useQueryClient();
-  const [page, setPage] = useState(1);
-  const [searchInput, setSearchInput] = useState('');
-  const [search, setSearch] = useState('');
-  const deletedQuery = useQuery({
-    queryKey: ['deleted-students', { page, size: PAGE_SIZE, search }],
-    queryFn: () => getDeletedStudentPage({ page, size: PAGE_SIZE, search }),
-  });
-  const pageData = deletedQuery.data?.data;
-  const students = pageData?.records ?? [];
-  const currentPage = pageData?.page_info.current ?? page;
-  const totalPages = pageData?.page_info.total_pages ?? 0;
-
-  const refreshLists = async () => {
-    await queryClient.invalidateQueries({ queryKey: ['students'] });
-    await queryClient.invalidateQueries({ queryKey: ['deleted-students'] });
-  };
-
-  const restoreMutation = useMutation({
-    mutationFn: (id: number) => restoreStudents([id]),
-    onSuccess: async (response) => {
-      await refreshLists();
-      const { restored, conflicts, notFound } = response.data;
-      const parts = [
-        restored.length ? `Đã khôi phục ${restored.length} sinh viên.` : '',
-        conflicts.length ? `Không thể khôi phục do trùng code/email/username: ${conflicts.join(', ')}.` : '',
-        notFound.length ? `Không tìm thấy: ${notFound.join(', ')}.` : '',
-      ].filter(Boolean);
-      Alert.alert('Khôi phục sinh viên', parts.join('\n'));
-    },
-  });
-
-  const permanentMutation = useMutation({
-    mutationFn: (id: number) => permanentlyDeleteStudents([id]),
-    onSuccess: async (response) => {
-      await refreshLists();
-      const { deleted, notFound } = response.data;
-      Alert.alert('Xóa vĩnh viễn', deleted.length ? 'Đã xóa vĩnh viễn sinh viên.' : `Không tìm thấy: ${notFound.join(', ')}.`);
-    },
-  });
-
-  const submitSearch = () => {
-    setSearch(searchInput.trim());
-    setPage(1);
-  };
-
-  const confirmRestore = (student: StudentListItem) => {
-    const id = Number(student.id);
-    Alert.alert('Khôi phục sinh viên?', `${student.fullname} sẽ trở lại danh sách đang hoạt động.`, [
-      { text: 'Hủy', style: 'cancel' },
-      { text: 'Khôi phục', onPress: () => restoreMutation.mutate(id) },
-    ]);
-  };
-
-  const confirmPermanentDelete = (student: StudentListItem) => {
-    const id = Number(student.id);
-    Alert.alert('Xóa vĩnh viễn?', `Không thể khôi phục ${student.fullname} sau thao tác này.`, [
-      { text: 'Hủy', style: 'cancel' },
-      { text: 'Xóa vĩnh viễn', style: 'destructive', onPress: () => permanentMutation.mutate(id) },
-    ]);
-  };
-
-  const renderItem = ({ item }: ListRenderItemInfo<StudentListItem>) => (
-    <ThemedView type="backgroundElement" style={styles.studentCard}>
-      <ThemedText type="smallBold">{item.fullname}</ThemedText>
-      <ThemedText type="small" themeColor="textSecondary">Mã sinh viên: {item.code}</ThemedText>
-      <ThemedText type="small" themeColor="textSecondary">{item.email}</ThemedText>
-      <ThemedView style={styles.cardActions}>
-        <Pressable disabled={restoreMutation.isPending || permanentMutation.isPending} onPress={() => confirmRestore(item)} style={styles.restoreButton}><ThemedText type="smallBold" style={styles.restoreText}>Khôi phục</ThemedText></Pressable>
-        <Pressable disabled={restoreMutation.isPending || permanentMutation.isPending} onPress={() => confirmPermanentDelete(item)} style={styles.permanentButton}><ThemedText type="smallBold" style={styles.permanentText}>Xóa vĩnh viễn</ThemedText></Pressable>
-      </ThemedView>
-    </ThemedView>
-  );
-
-  const renderEmpty = () => {
-    if (deletedQuery.isPending) return <ActivityIndicator color={theme.text} size="large" />;
-    if (deletedQuery.isError) {
-      return (
-        <ThemedView type="backgroundElement" style={styles.stateCard}>
-          <ThemedText type="smallBold">Đã xảy ra lỗi</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">{errorMessage(deletedQuery.error)}</ThemedText>
-          <Pressable onPress={() => void deletedQuery.refetch()}><ThemedText type="smallBold">Thử lại</ThemedText></Pressable>
-        </ThemedView>
-      );
-    }
-    return <ThemedView type="backgroundElement" style={styles.stateCard}><ThemedText type="small">Không có sinh viên đã xóa phù hợp.</ThemedText></ThemedView>;
-  };
-
-  return (
-    <ThemedView style={styles.container}>
-      <FlatList
-        data={students}
-        keyExtractor={(student) => student.id}
-        renderItem={renderItem}
-        ListHeaderComponent={
-          <ThemedView style={styles.header}>
-            <ThemedText themeColor="textSecondary">Tìm theo tên hoặc email.</ThemedText>
-            <ThemedView style={styles.searchRow}>
-              <TextInput value={searchInput} onChangeText={setSearchInput} onSubmitEditing={submitSearch} placeholder="Nhập tên hoặc email" placeholderTextColor={theme.textSecondary} returnKeyType="search" style={[styles.searchInput, { borderColor: theme.backgroundSelected, color: theme.text }]} />
-              <Pressable onPress={submitSearch} style={styles.searchButton}><ThemedText type="smallBold" style={styles.restoreText}>Tìm</ThemedText></Pressable>
-            </ThemedView>
-            {restoreMutation.isError ? <ThemedText type="small" style={styles.errorText}>{errorMessage(restoreMutation.error)}</ThemedText> : null}
-            {permanentMutation.isError ? <ThemedText type="small" style={styles.errorText}>{errorMessage(permanentMutation.error)}</ThemedText> : null}
-          </ThemedView>
-        }
-        ListEmptyComponent={renderEmpty}
-        ListFooterComponent={
-          pageData ? (
-            <ThemedView style={styles.pagination}>
-              <Pressable disabled={currentPage <= 1} onPress={() => setPage((current) => Math.max(1, current - 1))} style={[styles.paginationButton, currentPage <= 1 && styles.disabledButton]}><ThemedText type="smallBold">Trước</ThemedText></Pressable>
-              <ThemedText type="small" themeColor="textSecondary">Trang {currentPage}/{totalPages || 1} · {pageData.page_info.total_items} sinh viên</ThemedText>
-              <Pressable disabled={totalPages === 0 || currentPage >= totalPages} onPress={() => setPage((current) => current + 1)} style={[styles.paginationButton, (totalPages === 0 || currentPage >= totalPages) && styles.disabledButton]}><ThemedText type="smallBold">Sau</ThemedText></Pressable>
-            </ThemedView>
-          ) : null
-        }
-        contentContainerStyle={[styles.content, students.length === 0 && styles.emptyContent]}
-        refreshing={deletedQuery.isRefetching}
-        onRefresh={() => void deletedQuery.refetch()}
-      />
-    </ThemedView>
-  );
+  const client = useQueryClient(); const theme = useTheme(); const [page, setPage] = useState(1); const [searchInput, setSearchInput] = useState(''); const [search, setSearch] = useState(''); const [selecting, setSelecting] = useState(false); const [selected, setSelected] = useState<string[]>([]);
+  const deletedQuery = useQuery({ queryKey: ['deleted-students', { page, size: PAGE_SIZE, search }], queryFn: () => getDeletedStudentPage({ page, size: PAGE_SIZE, search }) }); const pageData = deletedQuery.data?.data; const students = pageData?.records ?? []; const currentPage = pageData?.page_info.current ?? page; const totalPages = pageData?.page_info.total_pages ?? 0;
+  const invalidate = async () => { await client.invalidateQueries({ queryKey: ['students'] }); await client.invalidateQueries({ queryKey: ['deleted-students'] }); };
+  const clampAfter = (removed: (string | number)[]) => { const removedIds = new Set(removed.map(String)); if (students.length > 0 && students.every((student) => removedIds.has(student.id))) setPage((current) => Math.max(1, current - 1)); return removedIds; };
+  const restoreMutation = useMutation({ mutationFn: (ids: string[]) => restoreStudents(ids.map(Number)), onSuccess: async (response) => { await invalidate(); const restored = clampAfter(response.data.restored); response.data.restored.forEach((id) => client.removeQueries({ queryKey: ['student', String(id)] })); setSelected((items) => items.filter((id) => !restored.has(id))); Alert.alert('Kết quả khôi phục', `Đã khôi phục ${response.data.restored.length} sinh viên.${response.data.conflicts.length ? ` Xung đột dữ liệu: ${response.data.conflicts.join(', ')}.` : ''}${response.data.notFound.length ? ` Không tìm thấy: ${response.data.notFound.join(', ')}.` : ''}`); } });
+  const permanentMutation = useMutation({ mutationFn: (ids: string[]) => permanentlyDeleteStudents(ids.map(Number)), onSuccess: async (response) => { await invalidate(); const deleted = clampAfter(response.data.deleted); response.data.deleted.forEach((id) => client.removeQueries({ queryKey: ['student', String(id)] })); setSelected((items) => items.filter((id) => !deleted.has(id))); Alert.alert('Kết quả xóa vĩnh viễn', `Đã xóa vĩnh viễn ${response.data.deleted.length} sinh viên.${response.data.notFound.length ? ` Không tìm thấy: ${response.data.notFound.join(', ')}.` : ''}`); } });
+  const busy = restoreMutation.isPending || permanentMutation.isPending; const toggle = (id: string) => setSelected((items) => items.includes(id) ? items.filter((item) => item !== id) : [...items, id]); const submitSearch = () => { setSearch(searchInput.trim()); setPage(1); };
+  const confirmRestore = (ids: string[]) => Alert.alert('Khôi phục sinh viên?', `${ids.length} sinh viên sẽ trở lại danh sách hoạt động. Các xung đột code/email/username sẽ được backend giữ nguyên.`, [{ text: 'Hủy', style: 'cancel' }, { text: 'Khôi phục', onPress: () => restoreMutation.mutate(ids) }]);
+  const confirmPermanent = (ids: string[]) => Alert.alert('Xóa vĩnh viễn?', `${ids.length} sinh viên sẽ bị xóa vĩnh viễn và không thể hoàn tác.`, [{ text: 'Hủy', style: 'cancel' }, { text: 'Xóa vĩnh viễn', style: 'destructive', onPress: () => permanentMutation.mutate(ids) }]);
+  const renderItem = ({ item }: { item: StudentListItem }) => <ThemedView type="backgroundElement" style={styles.studentCard}><Pressable onPress={() => selecting && toggle(item.id)}><ThemedText type="smallBold">{selecting ? `${selected.includes(item.id) ? '✓ ' : '○ '}` : ''}{item.fullname}</ThemedText><ThemedText type="small" themeColor="textSecondary">Mã sinh viên: {item.code}</ThemedText><ThemedText type="small" themeColor="textSecondary">{item.email}</ThemedText></Pressable>{!selecting ? <View style={styles.cardActions}><Pressable disabled={busy} onPress={() => confirmRestore([item.id])} style={styles.restoreButton}><ThemedText type="smallBold" style={styles.white}>Khôi phục</ThemedText></Pressable><Pressable disabled={busy} onPress={() => confirmPermanent([item.id])} style={styles.permanentButton}><ThemedText type="smallBold" style={styles.white}>Xóa vĩnh viễn</ThemedText></Pressable></View> : null}</ThemedView>;
+  return <ThemedView style={styles.container}><FlatList data={students} keyExtractor={(student) => student.id} renderItem={renderItem}
+    ListHeaderComponent={<ThemedView style={styles.header}><ThemedText themeColor="textSecondary">Tìm theo tên hoặc email.</ThemedText><View style={styles.actions}><Pressable onPress={() => setSelecting((value) => !value)} style={styles.secondaryButton}><ThemedText type="smallBold">{selecting ? 'Xong chọn' : 'Chọn nhiều'}</ThemedText></Pressable></View>{selecting ? <ThemedView type="backgroundElement" style={styles.selectionBar}><ThemedText type="smallBold">Đã chọn {selected.length}</ThemedText><View style={styles.actions}><Pressable onPress={() => setSelected((items) => [...new Set([...items, ...students.map((student) => student.id)])])} style={styles.secondaryButton}><ThemedText type="smallBold">Chọn trang này</ThemedText></Pressable><Pressable onPress={() => setSelected([])} style={styles.secondaryButton}><ThemedText type="smallBold">Bỏ chọn</ThemedText></Pressable>{selected.length ? <><Pressable disabled={busy} onPress={() => confirmRestore(selected)} style={[styles.restoreButton, busy && styles.disabledButton]}><ThemedText type="smallBold" style={styles.white}>{restoreMutation.isPending ? 'Đang khôi phục...' : 'Khôi phục đã chọn'}</ThemedText></Pressable><Pressable disabled={busy} onPress={() => confirmPermanent(selected)} style={[styles.permanentButton, busy && styles.disabledButton]}><ThemedText type="smallBold" style={styles.white}>{permanentMutation.isPending ? 'Đang xóa...' : 'Xóa vĩnh viễn đã chọn'}</ThemedText></Pressable></> : null}</View></ThemedView> : null}<View style={styles.searchRow}><TextInput value={searchInput} onChangeText={setSearchInput} onSubmitEditing={submitSearch} placeholder="Nhập tên hoặc email" placeholderTextColor={theme.textSecondary} returnKeyType="search" style={[styles.searchInput, { borderColor: theme.backgroundSelected, color: theme.text }]} /><Pressable onPress={submitSearch} style={styles.searchButton}><ThemedText type="smallBold" style={styles.white}>Tìm</ThemedText></Pressable></View>{restoreMutation.isError ? <ThemedText type="small" style={styles.errorText}>{errorMessage(restoreMutation.error)}</ThemedText> : null}{permanentMutation.isError ? <ThemedText type="small" style={styles.errorText}>{errorMessage(permanentMutation.error)}</ThemedText> : null}</ThemedView>}
+    ListEmptyComponent={deletedQuery.isPending ? <ActivityIndicator color={theme.text} size="large" /> : <ThemedView type="backgroundElement" style={styles.stateCard}><ThemedText type="smallBold">{deletedQuery.isError ? 'Đã xảy ra lỗi' : 'Không có sinh viên đã xóa phù hợp.'}</ThemedText>{deletedQuery.isError ? <><ThemedText type="small">{errorMessage(deletedQuery.error)}</ThemedText><Pressable onPress={() => void deletedQuery.refetch()}><ThemedText type="smallBold">Thử lại</ThemedText></Pressable></> : null}</ThemedView>}
+    ListFooterComponent={pageData ? <View style={styles.pagination}><Pressable disabled={currentPage <= 1} onPress={() => setPage((current) => Math.max(1, current - 1))} style={[styles.paginationButton, currentPage <= 1 && styles.disabledButton]}><ThemedText type="smallBold">Trước</ThemedText></Pressable><ThemedText type="small">Trang {currentPage}/{totalPages || 1} · {pageData.page_info.total_items} sinh viên</ThemedText><Pressable disabled={totalPages === 0 || currentPage >= totalPages} onPress={() => setPage((current) => current + 1)} style={[styles.paginationButton, (totalPages === 0 || currentPage >= totalPages) && styles.disabledButton]}><ThemedText type="smallBold">Sau</ThemedText></Pressable></View> : null} contentContainerStyle={[styles.content, students.length === 0 && styles.emptyContent]} refreshing={deletedQuery.isRefetching} onRefresh={() => void deletedQuery.refetch()} /></ThemedView>;
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  content: { gap: Spacing.two, padding: Spacing.four },
-  emptyContent: { flexGrow: 1 },
-  header: { gap: Spacing.two, paddingBottom: Spacing.three },
-  searchRow: { flexDirection: 'row', gap: Spacing.two },
-  searchInput: { borderWidth: 1, borderRadius: Spacing.two, flex: 1, fontSize: 16, paddingHorizontal: Spacing.three, paddingVertical: Spacing.two },
-  searchButton: { alignItems: 'center', backgroundColor: '#0A7EA4', borderRadius: Spacing.two, justifyContent: 'center', paddingHorizontal: Spacing.three },
-  studentCard: { gap: Spacing.half, padding: Spacing.three, borderRadius: Spacing.two },
-  cardActions: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two, marginTop: Spacing.two },
-  restoreButton: { backgroundColor: '#0A7EA4', borderRadius: Spacing.two, paddingHorizontal: Spacing.two, paddingVertical: Spacing.two },
-  restoreText: { color: '#FFFFFF' },
-  permanentButton: { backgroundColor: '#B42318', borderRadius: Spacing.two, paddingHorizontal: Spacing.two, paddingVertical: Spacing.two },
-  permanentText: { color: '#FFFFFF' },
-  stateCard: { alignItems: 'center', gap: Spacing.two, marginTop: Spacing.four, padding: Spacing.four, borderRadius: Spacing.two },
-  pagination: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', paddingTop: Spacing.three },
-  paginationButton: { paddingHorizontal: Spacing.two, paddingVertical: Spacing.two },
-  disabledButton: { opacity: 0.4 },
-  errorText: { color: '#B42318' },
-});
+const styles = StyleSheet.create({ container: { flex: 1 }, content: { gap: Spacing.two, padding: Spacing.four }, emptyContent: { flexGrow: 1 }, header: { gap: Spacing.two, paddingBottom: Spacing.three }, actions: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two }, searchRow: { flexDirection: 'row', gap: Spacing.two }, searchInput: { borderWidth: 1, borderRadius: Spacing.two, flex: 1, fontSize: 16, paddingHorizontal: Spacing.three, paddingVertical: Spacing.two }, searchButton: { alignItems: 'center', backgroundColor: '#0A7EA4', borderRadius: Spacing.two, justifyContent: 'center', paddingHorizontal: Spacing.three }, studentCard: { gap: Spacing.half, padding: Spacing.three, borderRadius: Spacing.two }, cardActions: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two, marginTop: Spacing.two }, restoreButton: { backgroundColor: '#0A7EA4', borderRadius: Spacing.two, paddingHorizontal: Spacing.two, paddingVertical: Spacing.two }, permanentButton: { backgroundColor: '#B42318', borderRadius: Spacing.two, paddingHorizontal: Spacing.two, paddingVertical: Spacing.two }, secondaryButton: { alignSelf: 'flex-start', borderColor: '#0A7EA4', borderRadius: Spacing.two, borderWidth: 1, paddingHorizontal: Spacing.two, paddingVertical: Spacing.two }, white: { color: '#FFFFFF' }, stateCard: { alignItems: 'center', gap: Spacing.two, marginTop: Spacing.four, padding: Spacing.four, borderRadius: Spacing.two }, pagination: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', paddingTop: Spacing.three }, paginationButton: { paddingHorizontal: Spacing.two, paddingVertical: Spacing.two }, selectionBar: { gap: Spacing.two, padding: Spacing.three, borderRadius: Spacing.two }, disabledButton: { opacity: 0.4 }, errorText: { color: '#B42318' } });

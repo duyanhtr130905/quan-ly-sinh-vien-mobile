@@ -35,7 +35,7 @@ export type ClassCopyPreview = { drafts: ClassCopyDraft[]; notFoundIds: (string 
 export type ClassCopyValidationRow = { draftKey: string; status: 'valid' | 'invalid'; errors: Record<string, string> };
 export type ClassCopyCommit = { created: { draftKey: string; record: ClassRecord }[] };
 export type ClassImportFailure = { row: number; reason: string };
-export type ClassImportResult = { created: ClassRecord[]; failed: ClassImportFailure[] };
+export type ClassImportResult = { created: { id: string }[]; failed: ClassImportFailure[] };
 export type BulkClassDeleteResult = { deletedIds: (string | number)[]; blockedIds: (string | number)[] };
 
 export const previewClassCopies = (ids: string[]) => apiClient.post<LegacyApiResponse<ClassCopyPreview>>('/class/copy/preview', { idlist: ids });

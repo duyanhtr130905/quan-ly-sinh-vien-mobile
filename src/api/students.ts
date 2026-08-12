@@ -152,6 +152,15 @@ export function deleteStudent(id: string) {
   return apiClient.delete<LegacyApiResponse<{ id: number }>>(`/student/${id}`);
 }
 
+export type DeleteStudentsResult = {
+  deleted: (string | number)[];
+  notFound: (string | number)[];
+};
+
+export function deleteStudents(ids: string[]) {
+  return apiClient.delete<LegacyApiResponse<DeleteStudentsResult>>('/student', { idlist: ids });
+}
+
 export type RestoreStudentsResult = {
   restored: number[];
   notFound: number[];
