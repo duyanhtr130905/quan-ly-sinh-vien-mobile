@@ -1,21 +1,143 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, TextInput } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, View, type ListRenderItemInfo } from 'react-native';
+
 import { ApiClientError } from '@/api/api-client';
 import { assignClassStudents, getAvailableStudents, type ClassStudent } from '@/api/classes';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { AppButton, AppTextInput, Card, ErrorMessage, PaginationControls, ScreenState } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
-const SIZE = 10;
-export default function AddMembersScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>(); const router = useRouter(); const theme = useTheme(); const client = useQueryClient(); const [page, setPage] = useState(1); const [input, setInput] = useState(''); const [search, setSearch] = useState(''); const [selected, setSelected] = useState<string[]>([]);
-  const query = useQuery({ queryKey: ['class-available', id, { page, size: SIZE, search }], queryFn: () => getAvailableStudents(id, { page, size: SIZE, search }), enabled: Boolean(id) }); const data = query.data?.data; const records = data?.records ?? []; const current = data?.page_info.current ?? page; const total = data?.page_info.total_pages ?? 0;
-  const assign = useMutation({ mutationFn: () => assignClassStudents(id, selected), onSuccess: async () => { await client.invalidateQueries({ queryKey: ['class', id] }); await client.invalidateQueries({ queryKey: ['class-members', id] }); await client.invalidateQueries({ queryKey: ['class-available', id] }); await client.invalidateQueries({ queryKey: ['students'] }); await client.invalidateQueries({ queryKey: ['student'] }); router.back(); } }); const error = assign.error instanceof ApiClientError ? `${assign.error.code ? `${assign.error.code}: ` : ''}${assign.error.message}` : 'Không thể thêm sinh viên.';
-  const toggle = (studentId: string) => setSelected((all) => all.includes(studentId) ? all.filter((value) => value !== studentId) : [...all, studentId]);
-  return <ThemedView style={s.container}><FlatList data={records} keyExtractor={(item) => item.id} renderItem={({ item }: { item: ClassStudent }) => <Pressable onPress={() => toggle(item.id)}><ThemedView type="backgroundElement" style={[s.card, selected.includes(item.id) && s.selected]}><ThemedText type="smallBold">{selected.includes(item.id) ? '✓ ' : ''}{item.fullname}</ThemedText><ThemedText type="small" themeColor="textSecondary">{item.code} · {item.email}</ThemedText></ThemedView></Pressable>}
-    ListHeaderComponent={<ThemedView style={s.header}><ThemedText type="small" themeColor="textSecondary">Chọn sinh viên chưa thuộc lớp nào.</ThemedText><ThemedView style={s.row}><TextInput value={input} onChangeText={setInput} onSubmitEditing={() => { setSearch(input.trim()); setPage(1); }} placeholder="Tìm mã, tên hoặc email" placeholderTextColor={theme.textSecondary} style={[s.input, { borderColor: theme.backgroundSelected, color: theme.text }]} /><Pressable onPress={() => { setSearch(input.trim()); setPage(1); }} style={s.search}><ThemedText type="smallBold" style={s.white}>Tìm</ThemedText></Pressable></ThemedView>{assign.isError ? <ThemedText type="small" style={s.error}>{error}</ThemedText> : null}</ThemedView>}
-    ListEmptyComponent={query.isPending ? <ActivityIndicator color={theme.text} /> : <ThemedText type="small">{query.isError ? 'Không thể tải sinh viên có thể thêm.' : 'Không có sinh viên sẵn sàng.'}</ThemedText>} ListFooterComponent={<ThemedView style={s.footer}>{data ? <ThemedView style={s.pagination}><Pressable disabled={current <= 1} onPress={() => setPage((v) => Math.max(1, v - 1))}><ThemedText type="smallBold">Trước</ThemedText></Pressable><ThemedText type="small">Trang {current}/{total || 1}</ThemedText><Pressable disabled={!total || current >= total} onPress={() => setPage((v) => v + 1)}><ThemedText type="smallBold">Sau</ThemedText></Pressable></ThemedView> : null}<Pressable disabled={!selected.length || assign.isPending} onPress={() => assign.mutate()} style={[s.assign, (!selected.length || assign.isPending) && s.disabled]}><ThemedText type="smallBold" style={s.white}>{assign.isPending ? 'Đang thêm...' : `Thêm ${selected.length} sinh viên`}</ThemedText></Pressable></ThemedView>} contentContainerStyle={s.content} refreshing={query.isRefetching} onRefresh={() => void query.refetch()} /></ThemedView>;
+
+const PAGE_SIZE = 10;
+
+function apiMessage(error: unknown, fallback: string) {
+  return error instanceof ApiClientError
+    ? `${error.code ? `${error.code}: ` : ''}${error.message}`
+    : fallback;
 }
-const s = StyleSheet.create({ container: { flex: 1 }, content: { gap: Spacing.two, padding: Spacing.four }, header: { gap: Spacing.two, paddingBottom: Spacing.three }, row: { flexDirection: 'row', gap: Spacing.two }, input: { borderWidth: 1, borderRadius: Spacing.two, flex: 1, padding: Spacing.two }, search: { alignItems: 'center', backgroundColor: '#0A7EA4', borderRadius: Spacing.two, justifyContent: 'center', padding: Spacing.two }, card: { gap: Spacing.one, padding: Spacing.three, borderRadius: Spacing.two }, selected: { borderColor: '#0A7EA4', borderWidth: 2 }, footer: { gap: Spacing.three, paddingTop: Spacing.three }, pagination: { flexDirection: 'row', justifyContent: 'space-between' }, assign: { alignItems: 'center', backgroundColor: '#0A7EA4', borderRadius: Spacing.two, padding: Spacing.three }, white: { color: '#FFF' }, disabled: { opacity: .4 }, error: { color: '#B42318' } });
+
+export default function AddMembersScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
+  const client = useQueryClient();
+  const [page, setPage] = useState(1);
+  const [input, setInput] = useState('');
+  const [search, setSearch] = useState('');
+  const [selected, setSelected] = useState<string[]>([]);
+  const query = useQuery({
+    queryKey: ['class-available', id, { page, size: PAGE_SIZE, search }],
+    queryFn: () => getAvailableStudents(id, { page, size: PAGE_SIZE, search }),
+    enabled: Boolean(id),
+  });
+  const data = query.data?.data;
+  const records = data?.records ?? [];
+  const current = data?.page_info.current ?? page;
+  const total = data?.page_info.total_pages ?? 0;
+  const assign = useMutation({
+    mutationFn: () => assignClassStudents(id, selected),
+    onSuccess: async () => {
+      await client.invalidateQueries({ queryKey: ['class', id] });
+      await client.invalidateQueries({ queryKey: ['class-members', id] });
+      await client.invalidateQueries({ queryKey: ['class-available', id] });
+      await client.invalidateQueries({ queryKey: ['classes'] });
+      await client.invalidateQueries({ queryKey: ['students'] });
+      await client.invalidateQueries({ queryKey: ['student'] });
+      router.back();
+    },
+  });
+  const toggle = (studentId: string) => {
+    setSelected((all) => all.includes(studentId) ? all.filter((value) => value !== studentId) : [...all, studentId]);
+  };
+  const submit = () => {
+    setSearch(input.trim());
+    setPage(1);
+  };
+  const confirmAssign = () => {
+    Alert.alert('Thêm sinh viên vào lớp?', `${selected.length} sinh viên sẽ được gán vào lớp này.`, [
+      { text: 'Hủy', style: 'cancel' },
+      { text: 'Thêm', onPress: () => assign.mutate() },
+    ]);
+  };
+  const renderItem = ({ item }: ListRenderItemInfo<ClassStudent>) => {
+    const isSelected = selected.includes(item.id);
+    return (
+      <Pressable
+        accessibilityLabel={`${isSelected ? 'Đã chọn' : 'Chưa chọn'}: ${item.fullname}`}
+        accessibilityRole="button"
+        onPress={() => toggle(item.id)}
+      >
+        <Card selected={isSelected} style={styles.card}>
+          <ThemedText type="smallBold">{isSelected ? '✓ Đã chọn · ' : '○ Chưa chọn · '}{item.fullname}</ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">{item.code} · {item.email}</ThemedText>
+        </Card>
+      </Pressable>
+    );
+  };
+
+  return (
+    <ThemedView style={styles.container}>
+      <FlatList
+        contentContainerStyle={[styles.content, records.length === 0 && styles.empty]}
+        data={records}
+        keyExtractor={(item) => item.id}
+        ListEmptyComponent={query.isPending ? (
+          <View style={styles.loading}><ActivityIndicator size="large" /></View>
+        ) : query.isError ? (
+          <ScreenState title="Không thể tải sinh viên" detail={apiMessage(query.error, 'Không thể tải sinh viên có thể thêm.')} actionLabel="Thử lại" onAction={() => void query.refetch()} />
+        ) : (
+          <ScreenState title="Không có sinh viên sẵn sàng" detail="Tất cả sinh viên phù hợp đã thuộc một lớp hoặc không khớp từ khóa tìm kiếm." />
+        )}
+        ListFooterComponent={(
+          <View style={styles.footer}>
+            {data ? (
+              <PaginationControls
+                currentPage={current}
+                onNext={() => setPage((value) => value + 1)}
+                onPrevious={() => setPage((value) => Math.max(1, value - 1))}
+                totalItems={data.page_info.total_items}
+                totalPages={total}
+              />
+            ) : null}
+            <AppButton disabled={!selected.length || assign.isPending} label={assign.isPending ? 'Đang thêm...' : `Thêm ${selected.length} sinh viên`} onPress={confirmAssign} />
+          </View>
+        )}
+        ListHeaderComponent={(
+          <View style={styles.header}>
+            <ThemedText type="subtitle">Thêm sinh viên</ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">Chọn sinh viên chưa thuộc lớp nào. Lựa chọn được giữ khi chuyển trang.</ThemedText>
+            <View style={styles.searchRow}>
+              <AppTextInput
+                accessibilityLabel="Tìm sinh viên có thể thêm"
+                placeholder="Tìm mã, tên hoặc email"
+                returnKeyType="search"
+                value={input}
+                onChangeText={setInput}
+                onSubmitEditing={submit}
+                style={styles.searchInput}
+              />
+              <AppButton label="Tìm" onPress={submit} />
+            </View>
+            {assign.isError ? <ErrorMessage>{apiMessage(assign.error, 'Không thể thêm sinh viên.')}</ErrorMessage> : null}
+          </View>
+        )}
+        refreshing={query.isRefetching}
+        renderItem={renderItem}
+        onRefresh={() => void query.refetch()}
+      />
+    </ThemedView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  content: { gap: Spacing.two, padding: Spacing.four },
+  empty: { flexGrow: 1 },
+  header: { gap: Spacing.two, paddingBottom: Spacing.three },
+  searchRow: { alignItems: 'center', flexDirection: 'row', gap: Spacing.two },
+  searchInput: { flex: 1 },
+  card: { gap: Spacing.one },
+  footer: { gap: Spacing.three, paddingTop: Spacing.three },
+  loading: { alignItems: 'center', flex: 1, justifyContent: 'center', minHeight: 220 },
+});

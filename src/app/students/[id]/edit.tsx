@@ -1,12 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator, Pressable, StyleSheet } from 'react-native';
+import { ActivityIndicator, StyleSheet } from 'react-native';
 
 import { ApiClientError } from '@/api/api-client';
 import { getStudent } from '@/api/students';
 import { StudentForm } from '@/components/student-form';
-import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { ScreenState } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
 
 export default function EditStudentScreen() {
@@ -23,13 +23,7 @@ export default function EditStudentScreen() {
 
   if (studentQuery.isError) {
     const message = studentQuery.error instanceof ApiClientError ? studentQuery.error.message : 'Không thể tải sinh viên.';
-    return (
-      <CenteredState>
-        <ThemedText type="smallBold">Không thể mở biểu mẫu</ThemedText>
-        <ThemedText type="small" themeColor="textSecondary">{message}</ThemedText>
-        <Pressable onPress={() => void studentQuery.refetch()}><ThemedText type="smallBold">Thử lại</ThemedText></Pressable>
-      </CenteredState>
-    );
+    return <CenteredState><ScreenState title="Không thể mở biểu mẫu" detail={message} actionLabel="Thử lại" onAction={() => void studentQuery.refetch()} /></CenteredState>;
   }
 
   return <StudentForm key={studentQuery.data.data.id} mode="edit" student={studentQuery.data.data} />;

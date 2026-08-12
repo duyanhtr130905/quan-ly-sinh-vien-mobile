@@ -5,10 +5,11 @@ import { useRouter } from 'expo-router';
 import {
   Alert,
   Image,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
-  TextInput,
   View,
 } from 'react-native';
 
@@ -23,6 +24,7 @@ import {
 } from '@/api/students';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { AppButton, AppTextInput, Card, ErrorMessage, FormField, SectionTitle } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -127,7 +129,6 @@ function selectedHobbyNames(hobbies: Hobby[], value: number) {
 }
 
 export function StudentForm({ mode, student }: StudentFormProps) {
-  const theme = useTheme();
   const router = useRouter();
   const queryClient = useQueryClient();
   const isCreate = mode === 'create';
@@ -198,65 +199,67 @@ export function StudentForm({ mode, student }: StudentFormProps) {
 
   return (
     <ThemedView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <KeyboardAvoidingView behavior={Platform.select({ ios: 'padding', android: 'height' })} style={styles.container}>
+        <ScrollView contentContainerStyle={styles.content} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
         <Section title="Thông tin chính">
-          <Field label="Mã sinh viên" required>
-            <TextInput
+          <FormField label={isCreate ? 'Mã sinh viên' : 'Mã sinh viên (không thể thay đổi)'} required>
+            <AppTextInput
+              accessibilityLabel="Mã sinh viên"
               editable={isCreate}
               value={values.code}
               onChangeText={(value) => update('code', value)}
               autoCapitalize="characters"
-              style={[styles.input, { borderColor: theme.backgroundSelected, color: theme.text }, !isCreate && styles.readOnly]}
+              style={!isCreate && styles.readOnly}
             />
-          </Field>
-          <Field label="Họ và tên" required>
-            <TextInput value={values.fullname} onChangeText={(value) => update('fullname', value)} style={[styles.input, { borderColor: theme.backgroundSelected, color: theme.text }]} />
-          </Field>
-          <Field label="Email" required>
-            <TextInput value={values.email} onChangeText={(value) => update('email', value)} autoCapitalize="none" keyboardType="email-address" style={[styles.input, { borderColor: theme.backgroundSelected, color: theme.text }]} />
-          </Field>
-          <Field label="Username" required>
-            <TextInput editable={isCreate} value={values.username} onChangeText={(value) => update('username', value)} autoCapitalize="none" style={[styles.input, { borderColor: theme.backgroundSelected, color: theme.text }, !isCreate && styles.readOnly]} />
-          </Field>
-          <Field label={isCreate ? 'Mật khẩu' : 'Mật khẩu mới (để trống nếu giữ nguyên)'} required={isCreate}>
-            <TextInput value={values.password} onChangeText={(value) => update('password', value)} autoCapitalize="none" secureTextEntry style={[styles.input, { borderColor: theme.backgroundSelected, color: theme.text }]} />
-          </Field>
+          </FormField>
+          <FormField label="Họ và tên" required>
+            <AppTextInput accessibilityLabel="Họ và tên" value={values.fullname} onChangeText={(value) => update('fullname', value)} />
+          </FormField>
+          <FormField label="Email" required>
+            <AppTextInput accessibilityLabel="Email" value={values.email} onChangeText={(value) => update('email', value)} autoCapitalize="none" keyboardType="email-address" />
+          </FormField>
+          <FormField label={isCreate ? 'Username' : 'Username (không thể thay đổi)'} required>
+            <AppTextInput accessibilityLabel="Username" editable={isCreate} value={values.username} onChangeText={(value) => update('username', value)} autoCapitalize="none" style={!isCreate && styles.readOnly} />
+          </FormField>
+          <FormField label={isCreate ? 'Mật khẩu' : 'Mật khẩu mới (để trống nếu giữ nguyên)'} required={isCreate}>
+            <AppTextInput accessibilityLabel="Mật khẩu" value={values.password} onChangeText={(value) => update('password', value)} autoCapitalize="none" secureTextEntry />
+          </FormField>
         </Section>
 
         <Section title="Thông tin cá nhân">
-          <Field label="Ngày sinh (YYYY-MM-DD)">
-            <TextInput value={values.dob} onChangeText={(value) => update('dob', value)} placeholder="2004-01-15" placeholderTextColor={theme.textSecondary} autoCapitalize="none" style={[styles.input, { borderColor: theme.backgroundSelected, color: theme.text }]} />
-          </Field>
-          <Field label="Giới tính">
+          <FormField label="Ngày sinh (YYYY-MM-DD)">
+            <AppTextInput accessibilityLabel="Ngày sinh, định dạng năm-tháng-ngày" value={values.dob} onChangeText={(value) => update('dob', value)} placeholder="2004-01-15" autoCapitalize="none" />
+          </FormField>
+          <FormField label="Giới tính">
             <View style={styles.optionRow}>
               <Choice label="Nam" selected={values.sex === true} onPress={() => update('sex', true)} />
               <Choice label="Nữ" selected={values.sex === false} onPress={() => update('sex', false)} />
             </View>
-          </Field>
-          <Field label="Quê quán">
-            <TextInput value={values.homecity} onChangeText={(value) => update('homecity', value)} style={[styles.input, { borderColor: theme.backgroundSelected, color: theme.text }]} />
-          </Field>
-          <Field label="Địa chỉ">
-            <TextInput value={values.address} onChangeText={(value) => update('address', value)} style={[styles.input, { borderColor: theme.backgroundSelected, color: theme.text }]} />
-          </Field>
-          <Field label="Màu tóc (#RRGGBB)">
-            <TextInput value={values.hair_color} onChangeText={(value) => update('hair_color', value)} autoCapitalize="characters" style={[styles.input, { borderColor: theme.backgroundSelected, color: theme.text }]} />
-          </Field>
-          <Field label="Facebook (http/https)">
-            <TextInput value={values.facebook} onChangeText={(value) => update('facebook', value)} autoCapitalize="none" keyboardType="url" style={[styles.input, { borderColor: theme.backgroundSelected, color: theme.text }]} />
-          </Field>
+          </FormField>
+          <FormField label="Quê quán">
+            <AppTextInput accessibilityLabel="Quê quán" value={values.homecity} onChangeText={(value) => update('homecity', value)} />
+          </FormField>
+          <FormField label="Địa chỉ">
+            <AppTextInput accessibilityLabel="Địa chỉ" value={values.address} onChangeText={(value) => update('address', value)} />
+          </FormField>
+          <FormField label="Màu tóc (#RRGGBB)">
+            <AppTextInput accessibilityLabel="Màu tóc" value={values.hair_color} onChangeText={(value) => update('hair_color', value)} autoCapitalize="characters" />
+          </FormField>
+          <FormField label="Facebook (http/https)">
+            <AppTextInput accessibilityLabel="Địa chỉ Facebook" value={values.facebook} onChangeText={(value) => update('facebook', value)} autoCapitalize="none" keyboardType="url" />
+          </FormField>
         </Section>
 
         <Section title="Lớp và sở thích">
-          <Field label="Lớp">
+          <FormField label="Lớp">
             {classesQuery.isPending ? <ThemedText type="small">Đang tải lớp...</ThemedText> : null}
             {classesQuery.isError ? <ThemedText type="small" themeColor="textSecondary">Không thể tải danh sách lớp.</ThemedText> : null}
             <Choice label="Chưa xếp lớp" selected={!values.class_id} onPress={() => update('class_id', '')} />
             {classes.map((studentClass) => (
               <Choice key={studentClass.id} label={optionLabel(studentClass)} selected={values.class_id === studentClass.id} onPress={() => update('class_id', studentClass.id)} />
             ))}
-          </Field>
-          <Field label="Sở thích">
+          </FormField>
+          <FormField label="Sở thích">
             {hobbiesQuery.isPending ? <ThemedText type="small">Đang tải sở thích...</ThemedText> : null}
             {hobbiesQuery.isError ? <ThemedText type="small" themeColor="textSecondary">Không thể tải danh sách sở thích.</ThemedText> : null}
             {hobbies.map((hobby) => {
@@ -264,58 +267,46 @@ export function StudentForm({ mode, student }: StudentFormProps) {
               return <Choice key={hobby.id} label={hobby.name} selected={selected} onPress={() => update('hobbies', selected ? values.hobbies & ~hobby.bit_value : values.hobbies | hobby.bit_value)} />;
             })}
             {!hobbiesQuery.isPending && activeHobbyNames.length === 0 ? <ThemedText type="small" themeColor="textSecondary">Chưa chọn sở thích.</ThemedText> : null}
-          </Field>
+          </FormField>
         </Section>
 
         <Section title="Mô tả và ảnh">
-          <Field label="Mô tả">
-            <TextInput value={values.description} onChangeText={(value) => update('description', value)} multiline style={[styles.input, styles.multilineInput, { borderColor: theme.backgroundSelected, color: theme.text }]} />
-          </Field>
-          <Pressable onPress={() => void chooseImage()} style={styles.secondaryButton}>
-            <ThemedText type="smallBold">Chọn ảnh JPG/PNG (tối đa 5 MB)</ThemedText>
-          </Pressable>
+          <FormField label="Mô tả">
+            <AppTextInput accessibilityLabel="Mô tả" value={values.description} onChangeText={(value) => update('description', value)} multiline style={styles.multilineInput} />
+          </FormField>
+          <AppButton label="Chọn ảnh JPG/PNG (tối đa 5 MB)" variant="secondary" onPress={() => void chooseImage()} />
           {image ? (
             <ThemedView type="backgroundElement" style={styles.imagePreview}>
               <Image source={{ uri: image.uri }} style={styles.image} />
               <ThemedText type="small">{image.name}</ThemedText>
-              <Pressable onPress={() => setImage(null)}>
-                <ThemedText type="smallBold" themeColor="textSecondary">Bỏ ảnh mới chọn</ThemedText>
-              </Pressable>
+              <AppButton label="Bỏ ảnh mới chọn" variant="secondary" onPress={() => setImage(null)} />
             </ThemedView>
           ) : student?.attachment ? <Image source={{ uri: student.attachment }} style={styles.image} /> : null}
         </Section>
 
-        {saveMutation.isError ? <ThemedText type="small" style={styles.errorText}>{mutationMessage(saveMutation.error)}</ThemedText> : null}
-        <Pressable disabled={saveMutation.isPending} onPress={submit} style={[styles.primaryButton, saveMutation.isPending && styles.disabledButton]}>
-          <ThemedText type="smallBold" style={styles.primaryButtonText}>{saveMutation.isPending ? 'Đang lưu...' : isCreate ? 'Tạo sinh viên' : 'Lưu thay đổi'}</ThemedText>
-        </Pressable>
-      </ScrollView>
+        {saveMutation.isError ? <ErrorMessage>{mutationMessage(saveMutation.error)}</ErrorMessage> : null}
+        <AppButton disabled={saveMutation.isPending} label={saveMutation.isPending ? 'Đang lưu...' : isCreate ? 'Tạo sinh viên' : 'Lưu thay đổi'} onPress={submit} />
+        <AppButton label="Hủy" variant="secondary" onPress={() => router.back()} />
+        </ScrollView>
+      </KeyboardAvoidingView>
     </ThemedView>
   );
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <ThemedView type="backgroundElement" style={styles.section}>
-      <ThemedText type="smallBold">{title}</ThemedText>
+    <Card style={styles.section}>
+      <SectionTitle>{title}</SectionTitle>
       {children}
-    </ThemedView>
-  );
-}
-
-function Field({ label, required = false, children }: { label: string; required?: boolean; children: React.ReactNode }) {
-  return (
-    <View style={styles.field}>
-      <ThemedText type="small">{label}{required ? ' *' : ''}</ThemedText>
-      {children}
-    </View>
+    </Card>
   );
 }
 
 function Choice({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
+  const theme = useTheme();
   return (
-    <Pressable onPress={onPress} style={[styles.choice, selected && styles.choiceSelected]}>
-      <ThemedText type="small" style={selected && styles.choiceSelectedText}>{selected ? '✓ ' : ''}{label}</ThemedText>
+    <Pressable accessibilityRole="button" accessibilityState={{ selected }} onPress={onPress} style={[styles.choice, { borderColor: theme.primary }, selected && { backgroundColor: theme.primary }]}>
+      <ThemedText type="small" style={selected ? { color: theme.primaryText } : undefined}>{selected ? '✓ ' : ''}{label}</ThemedText>
     </Pressable>
   );
 }
@@ -323,20 +314,11 @@ function Choice({ label, selected, onPress }: { label: string; selected: boolean
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { gap: Spacing.three, padding: Spacing.four },
-  section: { gap: Spacing.three, padding: Spacing.three, borderRadius: Spacing.two },
-  field: { gap: Spacing.one },
-  input: { borderWidth: 1, borderRadius: Spacing.two, minHeight: 44, paddingHorizontal: Spacing.two, paddingVertical: Spacing.two, fontSize: 16 },
+  section: { gap: Spacing.three },
   multilineInput: { minHeight: 96, textAlignVertical: 'top' },
   readOnly: { opacity: 0.55 },
   optionRow: { flexDirection: 'row', gap: Spacing.two },
-  choice: { borderWidth: 1, borderColor: '#0A7EA4', borderRadius: Spacing.two, paddingHorizontal: Spacing.two, paddingVertical: Spacing.two },
-  choiceSelected: { backgroundColor: '#0A7EA4' },
-  choiceSelectedText: { color: '#FFFFFF' },
-  secondaryButton: { alignSelf: 'flex-start', borderWidth: 1, borderColor: '#0A7EA4', borderRadius: Spacing.two, paddingHorizontal: Spacing.three, paddingVertical: Spacing.two },
+  choice: { borderWidth: 1, borderRadius: Spacing.two, minHeight: 44, paddingHorizontal: Spacing.two, paddingVertical: Spacing.two },
   imagePreview: { gap: Spacing.two, padding: Spacing.two, borderRadius: Spacing.two },
   image: { width: 120, height: 120, borderRadius: Spacing.two },
-  primaryButton: { alignItems: 'center', backgroundColor: '#0A7EA4', borderRadius: Spacing.two, padding: Spacing.three },
-  primaryButtonText: { color: '#FFFFFF' },
-  disabledButton: { opacity: 0.5 },
-  errorText: { color: '#B42318' },
 });

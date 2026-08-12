@@ -6,7 +6,20 @@ import type { LegacyApiResponse } from './api-types';
 const CLASS_COLUMNS = 'id,code,name,description';
 const STUDENT_COLUMNS = 'id,code,fullname,email';
 
-export type ClassRecord = { id: string; code: string; name: string; description: string | null; student_count: number | string };
+export type ClassEntity = {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+};
+
+export type ClassListItem = ClassEntity & {
+  student_count: number | string;
+};
+
+export type ClassDetail = ClassEntity & {
+  student_count: number | string;
+};
 export type ClassFormValues = { code: string; name: string; description: string };
 export type ClassStudent = { id: string; code: string; fullname: string; email: string };
 export type PageData<T> = { page_info: { total_items: number; total_pages: number; current: number; size: number }; records: T[] };
@@ -17,12 +30,12 @@ function query({ page, size, search }: PageParams, columnlist: string) {
   return { page, size, columnlist, search: search?.trim() || undefined };
 }
 
-export const getClassPage = (params: PageParams) => apiClient.get<LegacyApiResponse<PageData<ClassRecord>>>('/class/page', query(params, CLASS_COLUMNS));
-export const getClass = (id: string) => apiClient.get<LegacyApiResponse<ClassRecord>>(`/class/${id}`);
+export const getClassPage = (params: PageParams) => apiClient.get<LegacyApiResponse<PageData<ClassListItem>>>('/class/page', query(params, CLASS_COLUMNS));
+export const getClass = (id: string) => apiClient.get<LegacyApiResponse<ClassDetail>>(`/class/${id}`);
 export const createClass = (values: ClassFormValues) => apiClient.post<LegacyApiResponse<{ id: string }>>('/class', { code: values.code.trim(), name: values.name.trim(), description: values.description });
 export const updateClass = (id: string, values: ClassFormValues) => apiClient.put<LegacyApiResponse<{ id: string }>>(`/class/${id}`, { name: values.name.trim(), description: values.description });
-export const deleteClass = (id: string) => apiClient.delete<LegacyApiResponse<ClassRecord | null>>(`/class/${id}`);
-export const copyClass = (id: string) => apiClient.post<LegacyApiResponse<ClassRecord>>(`/class/copy/${id}`);
+export const deleteClass = (id: string) => apiClient.delete<LegacyApiResponse<ClassEntity | null>>(`/class/${id}`);
+export const copyClass = (id: string) => apiClient.post<LegacyApiResponse<ClassEntity>>(`/class/copy/${id}`);
 export const getClassStudents = (id: string, params: PageParams) => apiClient.get<LegacyApiResponse<PageData<ClassStudent>>>(`/class/${id}/students`, query(params, STUDENT_COLUMNS));
 export const getAvailableStudents = (id: string, params: PageParams) => apiClient.get<LegacyApiResponse<PageData<ClassStudent>>>(`/class/${id}/available-students`, query(params, STUDENT_COLUMNS));
 export const assignClassStudents = (id: string, studentIds: string[]) => apiClient.post<LegacyApiResponse<{ studentIds: number[] }>>(`/class/${id}/students`, { studentIds });
@@ -33,7 +46,7 @@ export type ClassCopyValues = { code: string; name: string; description: string 
 export type ClassCopyDraft = { draftKey: string; sourceId: number; values: ClassCopyValues };
 export type ClassCopyPreview = { drafts: ClassCopyDraft[]; notFoundIds: (string | number)[] };
 export type ClassCopyValidationRow = { draftKey: string; status: 'valid' | 'invalid'; errors: Record<string, string> };
-export type ClassCopyCommit = { created: { draftKey: string; record: ClassRecord }[] };
+export type ClassCopyCommit = { created: { draftKey: string; record: ClassEntity }[] };
 export type ClassImportFailure = { row: number; reason: string };
 export type ClassImportResult = { created: { id: string }[]; failed: ClassImportFailure[] };
 export type BulkClassDeleteResult = { deletedIds: (string | number)[]; blockedIds: (string | number)[] };

@@ -1,24 +1,171 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, View, type ListRenderItemInfo } from 'react-native';
 
 import { ApiClientError } from '@/api/api-client';
 import { getClassStudents, removeClassStudent, removeClassStudents, type ClassStudent } from '@/api/classes';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { AppButton, AppTextInput, Card, ErrorMessage, PaginationControls, ScreenState } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
 
-const SIZE = 10;
-export default function MembershipScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>(); const router = useRouter(); const theme = useTheme(); const client = useQueryClient(); const [page, setPage] = useState(1); const [input, setInput] = useState(''); const [search, setSearch] = useState(''); const [selecting, setSelecting] = useState(false); const [selected, setSelected] = useState<string[]>([]);
-  const query = useQuery({ queryKey: ['class-members', id, { page, size: SIZE, search }], queryFn: () => getClassStudents(id, { page, size: SIZE, search }), enabled: Boolean(id) }); const data = query.data?.data; const records = data?.records ?? []; const current = data?.page_info.current ?? page; const total = data?.page_info.total_pages ?? 0;
-  const invalidate = async () => { await client.invalidateQueries({ queryKey: ['class', id] }); await client.invalidateQueries({ queryKey: ['class-members', id] }); await client.invalidateQueries({ queryKey: ['class-available', id] }); await client.invalidateQueries({ queryKey: ['classes'] }); await client.invalidateQueries({ queryKey: ['students'] }); await client.invalidateQueries({ queryKey: ['student'] }); };
-  const remove = useMutation({ mutationFn: (studentId: string) => removeClassStudent(id, studentId), onSuccess: invalidate }); const bulkRemove = useMutation({ mutationFn: () => removeClassStudents(id, selected), onSuccess: async () => { await invalidate(); setSelected([]); } }); const error = (value: unknown) => value instanceof ApiClientError ? `${value.code ? `${value.code}: ` : ''}${value.message}` : 'Không thể loại sinh viên.';
-  const toggle = (studentId: string) => setSelected((items) => items.includes(studentId) ? items.filter((item) => item !== studentId) : [...items, studentId]); const submit = () => { setSearch(input.trim()); setPage(1); }; const confirmBulk = () => Alert.alert('Loại sinh viên?', `${selected.length} sinh viên sẽ bị loại khỏi lớp này. Thao tác chỉ thực hiện khi toàn bộ dữ liệu hợp lệ.`, [{ text: 'Hủy', style: 'cancel' }, { text: 'Loại', style: 'destructive', onPress: () => bulkRemove.mutate() }]);
-  return <ThemedView style={s.container}><FlatList data={records} keyExtractor={(item) => item.id} renderItem={({ item }: { item: ClassStudent }) => <ThemedView type="backgroundElement" style={s.card}><Pressable onPress={() => selecting && toggle(item.id)}><ThemedText type="smallBold">{selecting ? `${selected.includes(item.id) ? '✓ ' : '○ '}` : ''}{item.fullname}</ThemedText><ThemedText type="small">{item.code} · {item.email}</ThemedText></Pressable>{!selecting ? <Pressable disabled={remove.isPending} onPress={() => Alert.alert('Loại sinh viên?', `${item.fullname} sẽ không còn thuộc lớp này.`, [{ text: 'Hủy', style: 'cancel' }, { text: 'Loại', style: 'destructive', onPress: () => remove.mutate(item.id) }])}><ThemedText type="smallBold" style={s.danger}>Loại khỏi lớp</ThemedText></Pressable> : null}</ThemedView>}
-    ListHeaderComponent={<ThemedView style={s.header}><View style={s.actions}><Pressable onPress={() => router.push({ pathname: '/classes/[id]/membership/add', params: { id } } as never)} style={s.primary}><ThemedText type="smallBold" style={s.white}>Thêm sinh viên vào lớp</ThemedText></Pressable><Pressable onPress={() => setSelecting((value) => !value)} style={s.secondary}><ThemedText type="smallBold">{selecting ? 'Xong chọn' : 'Chọn nhiều'}</ThemedText></Pressable></View>{selecting ? <ThemedView type="backgroundElement" style={s.selection}><ThemedText type="smallBold">Đã chọn {selected.length}</ThemedText><View style={s.actions}><Pressable onPress={() => setSelected((items) => [...new Set([...items, ...records.map((record) => record.id)])])} style={s.secondary}><ThemedText type="smallBold">Chọn trang này</ThemedText></Pressable><Pressable onPress={() => setSelected([])} style={s.secondary}><ThemedText type="smallBold">Bỏ chọn</ThemedText></Pressable><Pressable disabled={!selected.length || bulkRemove.isPending} onPress={confirmBulk} style={[s.delete, (!selected.length || bulkRemove.isPending) && s.disabled]}><ThemedText type="smallBold" style={s.white}>{bulkRemove.isPending ? 'Đang loại...' : 'Loại đã chọn'}</ThemedText></Pressable></View></ThemedView> : null}<View style={s.row}><TextInput value={input} onChangeText={setInput} onSubmitEditing={submit} placeholder="Tìm mã, tên hoặc email" placeholderTextColor={theme.textSecondary} style={[s.input, { borderColor: theme.backgroundSelected, color: theme.text }]} /><Pressable onPress={submit} style={s.primary}><ThemedText type="smallBold" style={s.white}>Tìm</ThemedText></Pressable></View>{remove.isError ? <ThemedText type="small" style={s.danger}>{error(remove.error)}</ThemedText> : null}{bulkRemove.isError ? <ThemedText type="small" style={s.danger}>{error(bulkRemove.error)}</ThemedText> : null}</ThemedView>}
-    ListEmptyComponent={query.isPending ? <ActivityIndicator color={theme.text} /> : <ThemedText type="small">{query.isError ? error(query.error) : 'Chưa có sinh viên trong lớp.'}</ThemedText>} ListFooterComponent={data ? <ThemedView style={s.pagination}><Pressable disabled={current <= 1} onPress={() => setPage((value) => Math.max(1, value - 1))}><ThemedText type="smallBold">Trước</ThemedText></Pressable><ThemedText type="small">Trang {current}/{total || 1}</ThemedText><Pressable disabled={!total || current >= total} onPress={() => setPage((value) => value + 1)}><ThemedText type="smallBold">Sau</ThemedText></Pressable></ThemedView> : null} contentContainerStyle={s.content} refreshing={query.isRefetching} onRefresh={() => void query.refetch()} /></ThemedView>;
+const PAGE_SIZE = 10;
+
+function apiMessage(error: unknown) {
+  return error instanceof ApiClientError
+    ? `${error.code ? `${error.code}: ` : ''}${error.message}`
+    : 'Không thể loại sinh viên khỏi lớp.';
 }
-const s = StyleSheet.create({ container: { flex: 1 }, content: { gap: Spacing.two, padding: Spacing.four }, header: { gap: Spacing.two, paddingBottom: Spacing.three }, actions: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two }, row: { flexDirection: 'row', gap: Spacing.two }, input: { borderWidth: 1, borderRadius: Spacing.two, flex: 1, padding: Spacing.two }, primary: { alignItems: 'center', alignSelf: 'flex-start', backgroundColor: '#0A7EA4', borderRadius: Spacing.two, justifyContent: 'center', padding: Spacing.two }, secondary: { alignSelf: 'flex-start', borderColor: '#0A7EA4', borderRadius: Spacing.two, borderWidth: 1, padding: Spacing.two }, delete: { alignSelf: 'flex-start', backgroundColor: '#B42318', borderRadius: Spacing.two, padding: Spacing.two }, white: { color: '#FFF' }, card: { gap: Spacing.one, padding: Spacing.three, borderRadius: Spacing.two }, danger: { color: '#B42318' }, pagination: { flexDirection: 'row', justifyContent: 'space-between', paddingTop: Spacing.three }, selection: { gap: Spacing.two, padding: Spacing.three, borderRadius: Spacing.two }, disabled: { opacity: .4 } });
+
+export default function MembershipScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
+  const client = useQueryClient();
+  const [page, setPage] = useState(1);
+  const [input, setInput] = useState('');
+  const [search, setSearch] = useState('');
+  const [selecting, setSelecting] = useState(false);
+  const [selected, setSelected] = useState<string[]>([]);
+  const query = useQuery({
+    queryKey: ['class-members', id, { page, size: PAGE_SIZE, search }],
+    queryFn: () => getClassStudents(id, { page, size: PAGE_SIZE, search }),
+    enabled: Boolean(id),
+  });
+  const data = query.data?.data;
+  const records = data?.records ?? [];
+  const current = data?.page_info.current ?? page;
+  const total = data?.page_info.total_pages ?? 0;
+  const invalidate = async () => {
+    await client.invalidateQueries({ queryKey: ['class', id] });
+    await client.invalidateQueries({ queryKey: ['class-members', id] });
+    await client.invalidateQueries({ queryKey: ['class-available', id] });
+    await client.invalidateQueries({ queryKey: ['classes'] });
+    await client.invalidateQueries({ queryKey: ['students'] });
+    await client.invalidateQueries({ queryKey: ['student'] });
+  };
+  const remove = useMutation({ mutationFn: (studentId: string) => removeClassStudent(id, studentId), onSuccess: invalidate });
+  const bulkRemove = useMutation({
+    mutationFn: () => removeClassStudents(id, selected),
+    onSuccess: async () => {
+      await invalidate();
+      setSelected([]);
+    },
+  });
+  const busy = remove.isPending || bulkRemove.isPending;
+  const toggle = (studentId: string) => {
+    setSelected((items) => items.includes(studentId) ? items.filter((item) => item !== studentId) : [...items, studentId]);
+  };
+  const submit = () => {
+    setSearch(input.trim());
+    setPage(1);
+  };
+  const changeSelectionMode = () => {
+    setSelecting((current) => {
+      if (current) setSelected([]);
+      return !current;
+    });
+  };
+  const confirmSingle = (student: ClassStudent) => {
+    Alert.alert('Loại sinh viên?', `${student.fullname} sẽ không còn thuộc lớp này.`, [
+      { text: 'Hủy', style: 'cancel' },
+      { text: 'Loại', style: 'destructive', onPress: () => remove.mutate(student.id) },
+    ]);
+  };
+  const confirmBulk = () => {
+    Alert.alert('Loại sinh viên?', `${selected.length} sinh viên sẽ bị loại khỏi lớp này. Thao tác chỉ thực hiện khi toàn bộ dữ liệu hợp lệ.`, [
+      { text: 'Hủy', style: 'cancel' },
+      { text: 'Loại', style: 'destructive', onPress: () => bulkRemove.mutate() },
+    ]);
+  };
+  const renderItem = ({ item }: ListRenderItemInfo<ClassStudent>) => (
+    <Card selected={selected.includes(item.id)} style={styles.memberCard}>
+      <Pressable
+        accessibilityHint={selecting ? 'Chọn hoặc bỏ chọn sinh viên này' : undefined}
+        accessibilityLabel={`${selecting ? (selected.includes(item.id) ? 'Đã chọn' : 'Chưa chọn') : 'Sinh viên'}: ${item.fullname}`}
+        accessibilityRole={selecting ? 'button' : undefined}
+        disabled={!selecting}
+        onPress={() => toggle(item.id)}
+      >
+        <ThemedText type="smallBold">{selecting ? `${selected.includes(item.id) ? '✓ Đã chọn · ' : '○ Chưa chọn · '}` : ''}{item.fullname}</ThemedText>
+        <ThemedText type="small" themeColor="textSecondary">{item.code} · {item.email}</ThemedText>
+      </Pressable>
+      {!selecting ? <AppButton disabled={busy} label={remove.isPending ? 'Đang loại...' : 'Loại khỏi lớp'} variant="danger" onPress={() => confirmSingle(item)} /> : null}
+    </Card>
+  );
+
+  return (
+    <ThemedView style={styles.container}>
+      <FlatList
+        contentContainerStyle={[styles.content, records.length === 0 && styles.empty]}
+        data={records}
+        keyExtractor={(item) => item.id}
+        ListEmptyComponent={query.isPending ? (
+          <View style={styles.loading}><ActivityIndicator size="large" /></View>
+        ) : query.isError ? (
+          <ScreenState title="Không thể tải sinh viên" detail={apiMessage(query.error)} actionLabel="Thử lại" onAction={() => void query.refetch()} />
+        ) : (
+          <ScreenState title="Chưa có sinh viên trong lớp" detail="Thêm sinh viên vào lớp để bắt đầu quản lý thành viên." />
+        )}
+        ListFooterComponent={data ? (
+          <PaginationControls
+            currentPage={current}
+            onNext={() => setPage((value) => value + 1)}
+            onPrevious={() => setPage((value) => Math.max(1, value - 1))}
+            totalItems={data.page_info.total_items}
+            totalPages={total}
+          />
+        ) : null}
+        ListHeaderComponent={(
+          <View style={styles.header}>
+            <ThemedText type="subtitle">Thành viên lớp</ThemedText>
+            <View style={styles.actions}>
+              <AppButton label="Thêm sinh viên" onPress={() => router.push({ pathname: '/classes/[id]/membership/add', params: { id } } as never)} />
+              <AppButton label={selecting ? 'Xong chọn' : 'Chọn nhiều'} variant="secondary" onPress={changeSelectionMode} />
+            </View>
+            {selecting ? (
+              <Card style={styles.selection}>
+                <ThemedText type="smallBold" accessibilityLiveRegion="polite">Đang chọn · {selected.length} sinh viên</ThemedText>
+                <View style={styles.actions}>
+                  <AppButton label="Chọn trang này" variant="secondary" onPress={() => setSelected((items) => [...new Set([...items, ...records.map((record) => record.id)])])} />
+                  <AppButton label="Bỏ chọn" variant="secondary" onPress={() => setSelected([])} />
+                  <AppButton disabled={!selected.length || busy} label={bulkRemove.isPending ? 'Đang loại...' : 'Loại đã chọn'} variant="danger" onPress={confirmBulk} />
+                </View>
+              </Card>
+            ) : null}
+            <View style={styles.searchRow}>
+              <AppTextInput
+                accessibilityLabel="Tìm thành viên lớp"
+                placeholder="Tìm mã, tên hoặc email"
+                returnKeyType="search"
+                value={input}
+                onChangeText={setInput}
+                onSubmitEditing={submit}
+                style={styles.searchInput}
+              />
+              <AppButton label="Tìm" onPress={submit} />
+            </View>
+            {remove.isError ? <ErrorMessage>{apiMessage(remove.error)}</ErrorMessage> : null}
+            {bulkRemove.isError ? <ErrorMessage>{apiMessage(bulkRemove.error)}</ErrorMessage> : null}
+          </View>
+        )}
+        refreshing={query.isRefetching}
+        renderItem={renderItem}
+        onRefresh={() => void query.refetch()}
+      />
+    </ThemedView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  content: { gap: Spacing.two, padding: Spacing.four },
+  empty: { flexGrow: 1 },
+  header: { gap: Spacing.two, paddingBottom: Spacing.three },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
+  searchRow: { alignItems: 'center', flexDirection: 'row', gap: Spacing.two },
+  searchInput: { flex: 1 },
+  memberCard: { gap: Spacing.two },
+  selection: { gap: Spacing.two },
+  loading: { alignItems: 'center', flex: 1, justifyContent: 'center', minHeight: 220 },
+});
