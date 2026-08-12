@@ -5,6 +5,7 @@ import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from 'react-na
 import { ApiClientError } from '@/api/api-client';
 import { createClass, type ClassDetail, type ClassFormValues, updateClass } from '@/api/classes';
 import { ThemedView } from '@/components/themed-view';
+import { StickyActionBar } from '@/components/sticky-action-bar';
 import { AppButton, AppTextInput, Card, ErrorMessage, FormField, SectionTitle } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
 
@@ -21,6 +22,7 @@ export function ClassForm({ mode, studentClass }: { mode: 'create' | 'edit'; stu
     onSuccess: async (response) => {
       const id = response.data.id;
       await client.invalidateQueries({ queryKey: ['classes'] });
+      await client.invalidateQueries({ queryKey: ['student-classes'] });
       await client.invalidateQueries({ queryKey: ['class', id] });
       router.replace({ pathname: '/classes/[id]', params: { id } } as never);
     },
@@ -54,16 +56,19 @@ export function ClassForm({ mode, studentClass }: { mode: 'create' | 'edit'; stu
           </Card>
           {invalid ? <ErrorMessage>Mã lớp (tối đa 50) và tên lớp (tối đa 255) là bắt buộc.</ErrorMessage> : null}
           {error ? <ErrorMessage>{error}</ErrorMessage> : null}
-          <AppButton disabled={invalid || mutation.isPending} label={mutation.isPending ? 'Đang lưu...' : create ? 'Tạo lớp' : 'Lưu thay đổi'} onPress={() => mutation.mutate()} />
-          <AppButton label="Hủy" variant="secondary" onPress={() => router.back()} />
         </ScrollView>
+        <StickyActionBar>
+          <AppButton label="Hủy" variant="secondary" onPress={() => router.back()} />
+          <AppButton disabled={invalid || mutation.isPending} label={mutation.isPending ? 'Đang lưu...' : create ? 'Tạo lớp' : 'Lưu thay đổi'} style={styles.save} onPress={() => mutation.mutate()} />
+        </StickyActionBar>
       </KeyboardAvoidingView>
     </ThemedView>
   );
 }
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { gap: Spacing.three, padding: Spacing.four },
+  content: { gap: Spacing.three, padding: Spacing.four, paddingBottom: Spacing.five },
   multiline: { minHeight: 112, textAlignVertical: 'top' },
   readOnly: { opacity: 0.58 },
+  save: { flex: 1 },
 });

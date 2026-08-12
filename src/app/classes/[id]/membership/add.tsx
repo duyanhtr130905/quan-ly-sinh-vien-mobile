@@ -137,7 +137,7 @@ const styles = StyleSheet.create({
   header: { gap: Spacing.two, paddingBottom: Spacing.three },
   searchRow: { alignItems: 'center', flexDirection: 'row', gap: Spacing.two },
   searchInput: { flex: 1 },
-  card: { gap: Spacing.one },
+  card: { gap: Spacing.half, paddingVertical: Spacing.two },
   footer: { gap: Spacing.three, paddingTop: Spacing.three },
   loading: { alignItems: 'center', flex: 1, justifyContent: 'center', minHeight: 220 },
 });

@@ -1,2 +1,5 @@
 import { ClassForm } from '@/components/class-form';
-export default function NewClassScreen() { return <ClassForm mode="create" />; }
+
+export default function NewClassScreen() {
+  return <ClassForm mode="create" />;
+}

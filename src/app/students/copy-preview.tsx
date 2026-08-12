@@ -54,6 +54,10 @@ export default function StudentCopyPreviewScreen() {
     mutationFn: () => commitStudentCopies(drafts, images),
     onSuccess: async (response) => {
       await queryClient.invalidateQueries({ queryKey: ['students'] });
+      await queryClient.invalidateQueries({ queryKey: ['classes'] });
+      await queryClient.invalidateQueries({ queryKey: ['class'] });
+      await queryClient.invalidateQueries({ queryKey: ['class-members'] });
+      await queryClient.invalidateQueries({ queryKey: ['class-available'] });
       Alert.alert('Sao chép thành công', `Đã tạo ${response.data.created.length} sinh viên.`);
       router.replace('/');
     },

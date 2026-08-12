@@ -50,6 +50,7 @@ export default function ClassesScreen() {
   const [input, setInput] = useState('');
   const [search, setSearch] = useState('');
   const [selecting, setSelecting] = useState(false);
+  const [utilitiesVisible, setUtilitiesVisible] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
   const [format, setFormat] = useState<ClassFileFormat>('xlsx');
   const query = useQuery({
@@ -68,6 +69,7 @@ export default function ClassesScreen() {
     onSuccess: async (response) => {
       const deleted = new Set(response.data.deletedIds.map(String));
       await client.invalidateQueries({ queryKey: ['classes'] });
+      await client.invalidateQueries({ queryKey: ['student-classes'] });
       response.data.deletedIds.forEach((id) => client.removeQueries({ queryKey: ['class', String(id)] }));
       setSelected((items) => items.filter((id) => !deleted.has(id)));
       if (records.length > 0 && records.every((record) => deleted.has(record.id))) {
@@ -141,9 +143,15 @@ export default function ClassesScreen() {
               <ThemedText themeColor="textSecondary">Tìm theo mã, tên hoặc mô tả. Kéo xuống để làm mới danh sách.</ThemedText>
               <View style={styles.actions}>
                 <AppButton label="Thêm lớp" onPress={() => router.push('/classes/new' as never)} />
-                <AppButton label="Nhập" variant="secondary" onPress={() => router.push('/classes/import' as never)} />
+                <AppButton label={utilitiesVisible ? 'Ẩn tiện ích' : 'Tiện ích'} variant="secondary" onPress={() => setUtilitiesVisible((current) => !current)} />
                 <AppButton label={selecting ? 'Xong chọn' : 'Chọn nhiều'} variant="secondary" onPress={changeSelectionMode} />
               </View>
+              {utilitiesVisible ? (
+                <Card style={styles.utilities}>
+                  <ThemedText type="smallBold">Tiện ích lớp</ThemedText>
+                  <AppButton label="Nhập lớp" variant="secondary" onPress={() => router.push('/classes/import' as never)} />
+                </Card>
+              ) : null}
               {selecting ? (
                 <Card style={styles.selection}>
                   <ThemedText type="smallBold" accessibilityLiveRegion="polite">Đang chọn · {selected.length} lớp</ThemedText>
@@ -198,7 +206,8 @@ const styles = StyleSheet.create({
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   searchRow: { alignItems: 'center', flexDirection: 'row', gap: Spacing.two },
   searchInput: { flex: 1 },
-  classCard: { gap: Spacing.one },
+  classCard: { gap: Spacing.half, paddingVertical: Spacing.two },
+  utilities: { gap: Spacing.two },
   selection: { gap: Spacing.two },
   loading: { alignItems: 'center', flex: 1, justifyContent: 'center', minHeight: 220 },
 });

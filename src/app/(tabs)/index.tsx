@@ -41,8 +41,7 @@ function StudentCard({
     >
       <Card selected={selected} style={styles.studentCard}>
         <ThemedText type="smallBold">{selecting ? `${selected ? '✓ Đã chọn · ' : '○ Chưa chọn · '}` : ''}{student.fullname}</ThemedText>
-        <ThemedText type="small" themeColor="textSecondary">Mã sinh viên: {student.code}</ThemedText>
-        <ThemedText type="small" themeColor="textSecondary">{student.email}</ThemedText>
+        <ThemedText type="small" themeColor="textSecondary">{student.code} · {student.email}</ThemedText>
       </Card>
     </Pressable>
   );
@@ -55,6 +54,7 @@ export default function StudentsScreen() {
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [selectionMode, setSelectionMode] = useState(false);
+  const [utilitiesVisible, setUtilitiesVisible] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [exportFormat, setExportFormat] = useState<StudentFileFormat>('xlsx');
   const studentsQuery = useQuery({
@@ -74,6 +74,10 @@ export default function StudentsScreen() {
       const deleted = new Set(response.data.deleted.map(String));
       await queryClient.invalidateQueries({ queryKey: ['students'] });
       await queryClient.invalidateQueries({ queryKey: ['deleted-students'] });
+      await queryClient.invalidateQueries({ queryKey: ['classes'] });
+      await queryClient.invalidateQueries({ queryKey: ['class'] });
+      await queryClient.invalidateQueries({ queryKey: ['class-members'] });
+      await queryClient.invalidateQueries({ queryKey: ['class-available'] });
       response.data.deleted.forEach((id) => queryClient.removeQueries({ queryKey: ['student', String(id)] }));
       setSelectedIds((current) => current.filter((id) => !deleted.has(id)));
       if (students.length > 0 && students.every((student) => deleted.has(student.id))) {
@@ -149,10 +153,18 @@ export default function StudentsScreen() {
               <ThemedText themeColor="textSecondary">Tìm theo tên hoặc email. Kéo xuống để làm mới danh sách.</ThemedText>
               <View style={styles.actions}>
                 <AppButton label="Thêm sinh viên" onPress={() => router.push('/students/new')} />
-                <AppButton label="Đã xóa" variant="secondary" onPress={() => router.push('/students/deleted')} />
-                <AppButton label="Nhập" variant="secondary" onPress={() => router.push('/students/import')} />
+                <AppButton label={utilitiesVisible ? 'Ẩn tiện ích' : 'Tiện ích'} variant="secondary" onPress={() => setUtilitiesVisible((current) => !current)} />
                 <AppButton label={selectionMode ? 'Xong chọn' : 'Chọn nhiều'} variant="secondary" onPress={changeSelectionMode} />
               </View>
+              {utilitiesVisible ? (
+                <Card style={styles.utilities}>
+                  <ThemedText type="smallBold">Tiện ích sinh viên</ThemedText>
+                  <View style={styles.actions}>
+                    <AppButton label="Đã xóa" variant="secondary" onPress={() => router.push('/students/deleted')} />
+                    <AppButton label="Nhập" variant="secondary" onPress={() => router.push('/students/import')} />
+                  </View>
+                </Card>
+              ) : null}
               {selectionMode ? (
                 <Card style={styles.selectionBar}>
                   <ThemedText type="smallBold" accessibilityLiveRegion="polite">Đang chọn · {selectedIds.length} sinh viên</ThemedText>
@@ -207,7 +219,8 @@ const styles = StyleSheet.create({
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   searchRow: { alignItems: 'center', flexDirection: 'row', gap: Spacing.two },
   searchInput: { flex: 1 },
-  studentCard: { gap: Spacing.half },
+  studentCard: { gap: Spacing.half, paddingVertical: Spacing.two },
+  utilities: { gap: Spacing.two },
   selectionBar: { gap: Spacing.two },
   loading: { alignItems: 'center', flex: 1, justifyContent: 'center', minHeight: 220 },
 });

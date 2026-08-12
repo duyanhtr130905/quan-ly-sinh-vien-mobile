@@ -35,6 +35,10 @@ export default function DeletedStudentsScreen() {
   const invalidate = async () => {
     await client.invalidateQueries({ queryKey: ['students'] });
     await client.invalidateQueries({ queryKey: ['deleted-students'] });
+    await client.invalidateQueries({ queryKey: ['classes'] });
+    await client.invalidateQueries({ queryKey: ['class'] });
+    await client.invalidateQueries({ queryKey: ['class-members'] });
+    await client.invalidateQueries({ queryKey: ['class-available'] });
   };
   const clampAfter = (removed: (string | number)[]) => {
     const removedIds = new Set(removed.map(String));
@@ -97,6 +101,13 @@ export default function DeletedStudentsScreen() {
       [{ text: 'Hủy', style: 'cancel' }, { text: 'Xóa vĩnh viễn', style: 'destructive', onPress: () => permanentMutation.mutate(ids) }],
     );
   };
+  const openSingleActions = (student: StudentListItem) => {
+    Alert.alert(`Thao tác với ${student.fullname}`, 'Chọn hành động cho sinh viên trong thùng rác.', [
+      { text: 'Hủy', style: 'cancel' },
+      { text: 'Khôi phục', onPress: () => confirmRestore([student.id]) },
+      { text: 'Xóa vĩnh viễn', style: 'destructive', onPress: () => confirmPermanent([student.id]) },
+    ]);
+  };
   const renderItem = ({ item }: ListRenderItemInfo<StudentListItem>) => (
     <Card selected={selected.includes(item.id)} style={styles.studentCard}>
       <Pressable
@@ -107,15 +118,9 @@ export default function DeletedStudentsScreen() {
         onPress={() => toggle(item.id)}
       >
         <ThemedText type="smallBold">{selecting ? `${selected.includes(item.id) ? '✓ Đã chọn · ' : '○ Chưa chọn · '}` : ''}{item.fullname}</ThemedText>
-        <ThemedText type="small" themeColor="textSecondary">Mã sinh viên: {item.code}</ThemedText>
-        <ThemedText type="small" themeColor="textSecondary">{item.email}</ThemedText>
+        <ThemedText type="small" themeColor="textSecondary">{item.code} · {item.email}</ThemedText>
       </Pressable>
-      {!selecting ? (
-        <View style={styles.cardActions}>
-          <AppButton disabled={busy} label={restoreMutation.isPending ? 'Đang khôi phục...' : 'Khôi phục'} onPress={() => confirmRestore([item.id])} />
-          <AppButton disabled={busy} label={permanentMutation.isPending ? 'Đang xóa...' : 'Xóa vĩnh viễn'} variant="danger" onPress={() => confirmPermanent([item.id])} />
-        </View>
-      ) : null}
+      {!selecting ? <Pressable accessibilityLabel={`Thao tác với ${item.fullname}`} disabled={busy} onPress={() => openSingleActions(item)} style={styles.rowAction}><ThemedText type="smallBold" themeColor="textSecondary">Thao tác</ThemedText></Pressable> : null}
     </Card>
   );
 
@@ -190,8 +195,8 @@ const styles = StyleSheet.create({
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   searchRow: { alignItems: 'center', flexDirection: 'row', gap: Spacing.two },
   searchInput: { flex: 1 },
-  studentCard: { gap: Spacing.two },
-  cardActions: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
+  studentCard: { gap: Spacing.half, paddingVertical: Spacing.two },
+  rowAction: { alignSelf: 'flex-start', minHeight: 36, paddingVertical: Spacing.one },
   selectionBar: { gap: Spacing.two },
   loading: { alignItems: 'center', flex: 1, justifyContent: 'center', minHeight: 220 },
 });

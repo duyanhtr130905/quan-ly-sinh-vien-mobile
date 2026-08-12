@@ -65,6 +65,10 @@ export default function StudentImportScreen() {
     mutationFn: () => commitStudentImport(drafts),
     onSuccess: async (response) => {
       await queryClient.invalidateQueries({ queryKey: ['students'] });
+      await queryClient.invalidateQueries({ queryKey: ['classes'] });
+      await queryClient.invalidateQueries({ queryKey: ['class'] });
+      await queryClient.invalidateQueries({ queryKey: ['class-members'] });
+      await queryClient.invalidateQueries({ queryKey: ['class-available'] });
       Alert.alert('Nhập thành công', `Đã tạo ${response.data.created.length}, cập nhật ${response.data.updated.length} sinh viên.`);
       router.replace('/');
     },

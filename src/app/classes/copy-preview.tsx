@@ -47,6 +47,7 @@ export default function ClassCopyPreviewScreen() {
     mutationFn: () => commitClassCopies(drafts),
     onSuccess: async (response) => {
       await client.invalidateQueries({ queryKey: ['classes'] });
+      await client.invalidateQueries({ queryKey: ['student-classes'] });
       Alert.alert('Sao chép thành công', `Đã tạo ${response.data.created.length} lớp.`);
       router.replace('/classes');
     },

@@ -90,7 +90,7 @@ export default function MembershipScreen() {
         <ThemedText type="smallBold">{selecting ? `${selected.includes(item.id) ? '✓ Đã chọn · ' : '○ Chưa chọn · '}` : ''}{item.fullname}</ThemedText>
         <ThemedText type="small" themeColor="textSecondary">{item.code} · {item.email}</ThemedText>
       </Pressable>
-      {!selecting ? <AppButton disabled={busy} label={remove.isPending ? 'Đang loại...' : 'Loại khỏi lớp'} variant="danger" onPress={() => confirmSingle(item)} /> : null}
+      {!selecting ? <Pressable accessibilityLabel={`Thao tác với ${item.fullname}`} disabled={busy} onPress={() => confirmSingle(item)} style={styles.memberAction}><ThemedText type="smallBold" themeColor="textSecondary">{remove.isPending ? 'Đang loại...' : 'Loại khỏi lớp'}</ThemedText></Pressable> : null}
     </Card>
   );
 
@@ -165,7 +165,8 @@ const styles = StyleSheet.create({
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   searchRow: { alignItems: 'center', flexDirection: 'row', gap: Spacing.two },
   searchInput: { flex: 1 },
-  memberCard: { gap: Spacing.two },
+  memberCard: { gap: Spacing.half, paddingVertical: Spacing.two },
+  memberAction: { alignSelf: 'flex-start', minHeight: 36, paddingVertical: Spacing.one },
   selection: { gap: Spacing.two },
   loading: { alignItems: 'center', flex: 1, justifyContent: 'center', minHeight: 220 },
 });

@@ -29,6 +29,7 @@ export default function ClassImportScreen() {
     onSuccess: async (response) => {
       setResult(response.data);
       await client.invalidateQueries({ queryKey: ['classes'] });
+      await client.invalidateQueries({ queryKey: ['student-classes'] });
     },
   });
   const pick = async () => {
